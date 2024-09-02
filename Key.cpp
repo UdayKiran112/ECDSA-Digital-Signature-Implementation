@@ -99,7 +99,6 @@ int Key::generatePublicKey(octet *PrivateKey, octet *publicKey, SECP256K1::ECP *
     using namespace B256_56;
 
     int res = 0;
-    ECP G;
     BIG secret, curve_order;
 
     BIG_rcopy(curve_order, CURVE_Order);
