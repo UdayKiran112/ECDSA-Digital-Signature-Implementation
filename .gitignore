@@ -1,3 +1,7 @@
 .vscode/c_cpp_properties.json
 .vscode/launch.json
 .vscode/settings.json
+obj/Key.o
+obj/main.o
+obj/Message.o
+main

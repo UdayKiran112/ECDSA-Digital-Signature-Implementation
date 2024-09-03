@@ -1,7 +1,8 @@
 #include <bits/stdc++.h>
 #include "Key.h"
-using namespace std;
+#include "Message.h"
 
+using namespace std;
 using namespace B256_56;
 using namespace SECP256K1;
 
@@ -69,21 +70,6 @@ using namespace SECP256K1;
 //     KILL_CSPRNG(&RNG);
 // }
 
-void Hash_Function(octet *input, octet *output, int pad){
-    int n = -1;
-    GPhash(SHA256, 32, output, 32, pad, input, n, nullptr);
-
-    BIG x, prime;
-    BIG_fromBytes(x, output->val);
-    BIG_zero(prime);
-    BIG_rcopy(prime, Modulus);
-    BIG_mod(x, prime);
-    output->len = 32;
-    output->max = 32;
-    output->val = new char[32];
-    BIG_toBytes(output->val, x);
-}
-
 int main()
 {
     // Initialize random seed using a combination of time and random_device for better entropy
@@ -123,6 +109,14 @@ int main()
         core::KILL_CSPRNG(&RNG);
         return -1;
     }
+
+    // Initialize Message
+    string message = "Hello, World!";
+    Message msg(message);
+    octet Hashvalue = msg.getHashvalue();
+    octet Messageval = msg.getMessage();
+    OCT_output(&Hashvalue);
+    OCT_output_string(&Messageval);
 
     // Clean up the CSPRNG
     core::KILL_CSPRNG(&RNG);

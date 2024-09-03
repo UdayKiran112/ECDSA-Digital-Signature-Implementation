@@ -8,7 +8,7 @@ OBJ_DIR = obj
 LIB_DIR = Lib
 
 # Project Files
-SRCS = main.cpp Key.cpp
+SRCS = main.cpp Key.cpp Message.cpp
 OBJS = $(SRCS:%.cpp=$(OBJ_DIR)/%.o)
 LIBS = $(LIB_DIR)/core.a
 
