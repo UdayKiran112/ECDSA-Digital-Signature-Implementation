@@ -84,11 +84,6 @@ void Hash_Function(octet *input, octet *output, int pad){
     BIG_toBytes(output->val, x);
 }
 
-bool signMessage(csprng *RNG, octet *privateKey, octet *message, octet *signature)
-{
-
-}
-
 int main()
 {
     // Initialize random seed using a combination of time and random_device for better entropy

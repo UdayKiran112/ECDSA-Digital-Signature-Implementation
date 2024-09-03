@@ -2,35 +2,45 @@
 #include "Message.h"
 using namespace std;
 
-Message::Message(){
-
+Message::Message()
+{
 }
 
-Message::~Message() {
+Message::~Message()
+{
     delete[] message.val;
     delete[] Hashvalue.val;
 }
 
-Message::Message(){
+Message::Message(string message)
+{
+    this->message.len = message.size();
+    this->message.max = message.size();
+    this->message.val = new char[message.size()];
+    memcpy(this->message.val, message.c_str(), message.size());
 
+    this->Hashvalue.len = 32;
+    this->Hashvalue.max = 32;
+    this->Hashvalue.val = new char[32];
+    Hash_Function(&this->message, &this->Hashvalue, 0);
 }
 
-core::octet Message::getMessage(){
+core::octet Message::getMessage()
+{
     return message;
 }
 
-
-void Message::setMessage(core::octet message){
+void Message::setMessage(core::octet message)
+{
     this->message = message;
 }
-
-
 
 using namespace core;
 using namespace SECP256K1;
 using namespace B256_56;
 
-void Message::Hash_Function(octet *input, octet *output, int pad){
+void Message::Hash_Function(octet *input, octet *output, int pad)
+{
     int n = -1;
     GPhash(SHA256, 32, output, 32, pad, input, n, nullptr);
 
@@ -53,7 +63,8 @@ void Message::Concatenate_octet(octet *data1, octet *data2, octet *result)
     memcpy(result->val + data1->len, data2->val, data2->len);
 }
 
-void Message::add_octets(octet *data1, octet *data2, octet *result){
+void Message::add_octets(octet *data1, octet *data2, octet *result)
+{
     BIG point1, point2;
     BIG_fromBytes(point1, data1->val);
     BIG_fromBytes(point2, data2->val);
@@ -65,7 +76,8 @@ void Message::add_octets(octet *data1, octet *data2, octet *result){
     BIG_toBytes(result->val, sum);
 }
 
-void Message::multiply_octet(octet *data1, octet *data2, octet *result){
+void Message::multiply_octet(octet *data1, octet *data2, octet *result)
+{
     BIG point1, point2;
     BIG_fromBytes(point1, data1->val);
     BIG_fromBytes(point2, data2->val);
