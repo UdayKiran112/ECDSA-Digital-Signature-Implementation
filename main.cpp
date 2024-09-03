@@ -69,6 +69,26 @@ using namespace SECP256K1;
 //     KILL_CSPRNG(&RNG);
 // }
 
+void Hash_Function(octet *input, octet *output, int pad){
+    int n = -1;
+    GPhash(SHA256, 32, output, 32, pad, input, n, nullptr);
+
+    BIG x, prime;
+    BIG_fromBytes(x, output->val);
+    BIG_zero(prime);
+    BIG_rcopy(prime, Modulus);
+    BIG_mod(x, prime);
+    output->len = 32;
+    output->max = 32;
+    output->val = new char[32];
+    BIG_toBytes(output->val, x);
+}
+
+bool signMessage(csprng *RNG, octet *privateKey, octet *message, octet *signature)
+{
+
+}
+
 int main()
 {
     // Initialize random seed using a combination of time and random_device for better entropy
