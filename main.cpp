@@ -71,31 +71,46 @@ using namespace SECP256K1;
 
 int main()
 {
+    // Initialize random seed using a combination of time and random_device for better entropy
     unsigned long ran;
     char raw[100];
     octet RAW = {0, sizeof(raw), raw};
     csprng RNG;
-    time((time_t *)&ran);
+
+    // Improve seed generation by combining time and random_device
+    std::random_device rd;
+    ran = static_cast<unsigned long>(time(nullptr)) ^ rd();
+
+    // Populate RAW with random data
     RAW.len = 100;
     RAW.val[0] = ran;
     RAW.val[1] = ran >> 8;
     RAW.val[2] = ran >> 16;
     RAW.val[3] = ran >> 24;
+
+    // Fill the rest of RAW with high-entropy data
     for (int i = 4; i < 100; i++)
-        RAW.val[i] = i;
-    CREATE_CSPRNG(&RNG, &RAW);
+    {
+        RAW.val[i] = rd() & 0xFF; // Use random_device to fill the remaining bytes
+    }
 
-    Key key(&RNG);
+    // Initialize CSPRNG
+    core::CREATE_CSPRNG(&RNG, &RAW);
 
-    cout << "Private Key: ";
-    octet key_val = key.getPrivateKey();
-    OCT_output(&key_val);
-    cout << endl;
+    // Use try-catch to handle potential exceptions
+    try
+    {
+        Key key(&RNG);
+    }
+    catch (const std::exception &e)
+    {
+        std::cerr << "Error: " << e.what() << std::endl;
+        core::KILL_CSPRNG(&RNG);
+        return -1;
+    }
 
-    cout << "Public Key: ";
-    octet key_pub = key.getPublicKey();
-    OCT_output(&key_pub);
-    cout << endl;
+    // Clean up the CSPRNG
+    core::KILL_CSPRNG(&RNG);
 
-    KILL_CSPRNG(&RNG);
+    return 0;
 }

@@ -2,7 +2,11 @@
 #include "Key.h"
 using namespace std;
 
-Key::Key() {}
+Key::~Key()
+{
+    memset(this->privateKey.val, 0, this->privateKey.len); // Zero out private key
+    memset(this->publicKey.val, 0, this->publicKey.len);   // Zero out public key
+}
 
 Key::Key(csprng *RNG)
 {
@@ -10,22 +14,32 @@ Key::Key(csprng *RNG)
     {
         throw invalid_argument("Random Number Generator is null");
     }
-    octet priv;
-    priv.len = EGS_SECP256K1;
-    priv.max = EGS_SECP256K1;
-    priv.val = new char[priv.len];
-    generatePrivateKey(RNG, &priv);
+
+    // Initialise private key
+    char priv_val[EGS_SECP256K1];
+    octet priv = {0, sizeof(priv_val), priv_val};
+
+    // Generate private key
+    if (generatePrivateKey(RNG, &priv) != 0)
+    {
+        throw runtime_error("Failed to generate private key");
+    }
     this->setPrivateKey(priv);
 
-    octet pub;
-    pub.len = EFS_SECP256K1;
-    pub.max = EFS_SECP256K1;
-    pub.val = new char[pub.len];
+    // Initialise public key
+    char pub_val[2 * EFS_SECP256K1 + 1];
+    octet pub = {0, sizeof(pub_val), pub_val};
+
+    // Generate public key
     SECP256K1::ECP G;
     setGeneratorPoint(&G);
-    generatePublicKey(&priv, &pub, &G);
+    if (generatePublicKey(&priv, &pub, &G) != 0)
+    {
+        throw runtime_error("Failed to generate public key");
+    }
     this->setPublicKey(pub);
 
+    // Zero out sensitive data
     memset(priv.val, 0, priv.len);
     memset(pub.val, 0, pub.len);
 }
@@ -43,11 +57,13 @@ octet Key::getPublicKey()
 void Key::setPrivateKey(octet privateKey)
 {
     this->privateKey = privateKey;
+    memcpy(this->privateKey.val, privateKey.val, privateKey.len);
 }
 
 void Key::setPublicKey(octet publicKey)
 {
     this->publicKey = publicKey;
+    memcpy(this->publicKey.val, publicKey.val, publicKey.len);
 }
 
 void Key::setGeneratorPoint(SECP256K1::ECP *G)
@@ -67,8 +83,9 @@ void Key::setGeneratorPoint(SECP256K1::ECP *G)
     else
     {
         ECP_copy(G, &P);
-        cout << "Point Generated" << endl;
+        cout << "Generator Point :" << endl;
         ECP_output(G);
+        cout << endl;
     }
 }
 
@@ -77,17 +94,19 @@ int Key::generatePrivateKey(csprng *randomNumberGenerator, octet *PrivateKey)
     using namespace SECP256K1;
     using namespace B256_56;
 
-    BIG secret;
+    BIG secret, r;
+
+    BIG_rcopy(r, CURVE_Order);
 
     if (randomNumberGenerator != nullptr)
     {
-        BIG_random(secret, randomNumberGenerator);
+        BIG_randomnum(secret, r, randomNumberGenerator);
     }
     else
     {
-        BIG_fromBytes(secret, PrivateKey->val);
+        throw runtime_error("Random Number Generator is null");
     }
-
+    PrivateKey->len = EGS_SECP256K1;
     BIG_toBytes(PrivateKey->val, secret);
 
     return 0;
@@ -100,12 +119,20 @@ int Key::generatePublicKey(octet *PrivateKey, octet *publicKey, SECP256K1::ECP *
 
     int res = 0;
     BIG secret, curve_order;
+    ECP G;
 
     BIG_rcopy(curve_order, CURVE_Order);
 
     BIG_fromBytes(secret, PrivateKey->val);
-    ECP_clmul(generatorPoint, secret, curve_order);
-    ECP_toOctet(publicKey, generatorPoint, false);
+    ECP_copy(&G, generatorPoint);
+    ECP_clmul(&G, secret, curve_order);
+
+    // Print Public Key
+    cout << "Public Key :" << endl;
+    ECP_output(&G);
+    cout << endl;
+
+    ECP_toOctet(publicKey, &G, false);
 
     // Validating Public Key
     res = SECP256K1::ECP_PUBLIC_KEY_VALIDATE(publicKey);

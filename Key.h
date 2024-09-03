@@ -18,7 +18,7 @@ private:
 
 public:
     Key(csprng *RNG);
-    Key();
+    ~Key();
     octet getPrivateKey();
     octet getPublicKey();
     void setPrivateKey(octet privateKey);
