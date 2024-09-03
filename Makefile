@@ -1,6 +1,6 @@
 # Compiler and Flags
 CXX = g++
-CXXFLAGS = -g -O2 -Wall
+CXXFLAGS = -g -O0 -Wall -fno-omit-frame-pointer
 
 # Directories
 SRC_DIR = .

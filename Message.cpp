@@ -17,12 +17,6 @@ Message::Message()
     Hashvalue.len = 0;
     Hashvalue.max = 0;
     Hashvalue.val = NULL;
-
-    // Initialize Signature
-    BIG_zero(Signature.first);
-    Signature.second.len = 0;
-    Signature.second.max = 0;
-    Signature.second.val = NULL;
 }
 
 // Destructor
@@ -31,7 +25,6 @@ Message::~Message()
     // Freeing Dynamically allocated memory for octet values
     delete[] message.val;
     delete[] Hashvalue.val;
-    delete[] Signature.second.val;
 }
 
 // Constructor which takes string as input
@@ -50,6 +43,7 @@ Message::Message(string message)
 
     // Functionalities done
     Hash_Function(&this->message, &this->Hashvalue, 0);
+    setHashvalue(Hashvalue);
     // TO DO
 }
 
@@ -70,7 +64,7 @@ core::octet Message::getHashvalue()
 }
 
 // Signature getter
-pair<BIG, octet> Message::getSignature()
+pair<FP, FP> Message::getSignature()
 {
     return Signature;
 }
@@ -88,16 +82,9 @@ void Message::setHashvalue(octet Hashvalue)
 }
 
 // Signature setter
-void Message::setSignature(pair<BIG, octet> Signature)
+void Message::setSignature(pair<FP, FP> Signature)
 {
-    BIG_copy(this->Signature.first, Signature.first);
-
-    // Manage memory for the octet part (avoid memory leaks)
-    if (this->Signature.second.val != nullptr)
-    {
-        delete[] this->Signature.second.val;
-    }
-    OCT_copy(&this->Signature.second, &Signature.second);
+    this->Signature = Signature;
 }
 
 /*
@@ -172,4 +159,75 @@ void Message::multiply_octet(octet *data1, octet *data2, octet *result)
     result->max = 32;
     result->val = new char[32];
     BIG_toBytes(result->val, product);
+}
+
+bool Message::generateSignature(csprng *RNG, octet *privateKey, Message *msg)
+{
+    Key random = Key(RNG);
+    pair<FP,FP> signature_temp;
+
+    octet hashval = msg->getHashvalue();
+
+    cout << "Hashvalue: ";
+    OCT_output(&hashval);
+    cout << endl;
+
+    octet k = random.getPrivateKey();
+    ECP R = random.getPublicKey();
+
+    // Convert k to BIG
+    BIG kval;
+    BIG_fromBytes(kval, k.val);
+
+    // Convert BIG value of k to FP
+    FP k_fp;
+    FP_nres(&k_fp, kval);
+
+    // Extract x coordinate of R
+    FP r = R.x;
+
+    // Calculate Modular Inverse  of k
+    FP k_inverse;
+    FP_inv(&k_inverse, &k_fp, NULL);
+
+    // Calculate signature s = (k^-1)∗(h+r∗privKey)(mod n)
+    FP privKey, rval, h, temp1, temp2, rhs;
+    octet_to_FP(&h, &hashval); // h
+    octet_to_FP(&privKey, privateKey); // privKey
+    FP_mul(&temp1, &rval, &privKey); // temp1 = r * privKey
+    FP_add(&temp2, &h, &temp1); // temp2 = h + r * privKey
+    FP_mul(&rhs, &k_inverse, &temp2); // rhs = (k^-1) * (h + r * privKey)(mod n)
+
+    // Copy Signature values to signature_temp
+    FP_copy(&signature_temp.first, &r);
+    FP_copy(&signature_temp.second, &rhs);
+
+    this->setSignature(signature_temp);
+    return true;
+}
+
+bool Message::verifySignature(Message *msg)
+{
+    pair<FP,FP> signature = this->getSignature();
+
+    octet hashval = msg->getHashvalue();
+    FP s = signature.second;
+    FP s_inverse;
+    FP_inv(&s_inverse, &s, NULL);
+    SECP256K1::ECP R;
+}
+
+// Function to convert octet to FP type
+void octet_to_FP(FP *fp, octet *octet)
+{
+    BIG b;
+    BIG_fromBytes(b, octet->val);
+    FP_nres(fp, b);
+}
+
+void FP_to_octet(octet *octet, FP *fp)
+{
+    BIG b;
+    FP_redc(b, fp);
+    BIG_toBytes(octet->val, b);
 }

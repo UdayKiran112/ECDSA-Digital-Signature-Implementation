@@ -115,8 +115,14 @@ int main()
     Message msg(message);
     octet Hashvalue = msg.getHashvalue();
     octet Messageval = msg.getMessage();
+
+    cout << "Message: ";
+    OCT_output(&Messageval);
+    cout << endl;
+
+    cout << "Hashvalue: ";
     OCT_output(&Hashvalue);
-    OCT_output_string(&Messageval);
+    cout << endl;
 
     // Clean up the CSPRNG
     core::KILL_CSPRNG(&RNG);

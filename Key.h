@@ -14,17 +14,17 @@ class Key
 {
 private:
     octet privateKey;
-    octet publicKey;
+    SECP256K1::ECP publicKey;
 
 public:
     Key(csprng *RNG);
     ~Key();
     octet getPrivateKey();
-    octet getPublicKey();
+    SECP256K1::ECP getPublicKey();
     void setPrivateKey(octet privateKey);
-    void setPublicKey(octet publicKey);
+    void setPublicKey(SECP256K1::ECP publicKey);
     static void setGeneratorPoint(SECP256K1::ECP *G);
-    static int generatePublicKey(octet *PrivateKey, octet *publicKey, SECP256K1::ECP *generatorPoint);
+    static int generatePublicKey(octet *PrivateKey, SECP256K1::ECP *publicKey, SECP256K1::ECP *generatorPoint);
     static int generatePrivateKey(csprng *randomNumberGenerator, octet *PrivateKey);
 };
 

@@ -5,7 +5,6 @@ using namespace std;
 Key::~Key()
 {
     memset(this->privateKey.val, 0, this->privateKey.len); // Zero out private key
-    memset(this->publicKey.val, 0, this->publicKey.len);   // Zero out public key
 }
 
 Key::Key(csprng *RNG)
@@ -27,8 +26,7 @@ Key::Key(csprng *RNG)
     this->setPrivateKey(priv);
 
     // Initialise public key
-    char pub_val[2 * EFS_SECP256K1 + 1];
-    octet pub = {0, sizeof(pub_val), pub_val};
+    SECP256K1::ECP pub;
 
     // Generate public key
     SECP256K1::ECP G;
@@ -41,7 +39,6 @@ Key::Key(csprng *RNG)
 
     // Zero out sensitive data
     memset(priv.val, 0, priv.len);
-    memset(pub.val, 0, pub.len);
 }
 
 octet Key::getPrivateKey()
@@ -49,7 +46,7 @@ octet Key::getPrivateKey()
     return privateKey;
 }
 
-octet Key::getPublicKey()
+SECP256K1::ECP Key::getPublicKey()
 {
     return publicKey;
 }
@@ -60,10 +57,9 @@ void Key::setPrivateKey(octet privateKey)
     memcpy(this->privateKey.val, privateKey.val, privateKey.len);
 }
 
-void Key::setPublicKey(octet publicKey)
+void Key::setPublicKey(SECP256K1::ECP publicKey)
 {
     this->publicKey = publicKey;
-    memcpy(this->publicKey.val, publicKey.val, publicKey.len);
 }
 
 void Key::setGeneratorPoint(SECP256K1::ECP *G)
@@ -112,7 +108,7 @@ int Key::generatePrivateKey(csprng *randomNumberGenerator, octet *PrivateKey)
     return 0;
 }
 
-int Key::generatePublicKey(octet *PrivateKey, octet *publicKey, SECP256K1::ECP *generatorPoint)
+int Key::generatePublicKey(octet *PrivateKey, SECP256K1::ECP *publicKey, SECP256K1::ECP *generatorPoint)
 {
     using namespace SECP256K1;
     using namespace B256_56;
@@ -131,11 +127,11 @@ int Key::generatePublicKey(octet *PrivateKey, octet *publicKey, SECP256K1::ECP *
     cout << "Public Key :" << endl;
     ECP_output(&G);
     cout << endl;
-
-    ECP_toOctet(publicKey, &G, false);
+    octet PUBKEY;
+    ECP_toOctet(&PUBKEY, &G, true);
 
     // Validating Public Key
-    res = SECP256K1::ECP_PUBLIC_KEY_VALIDATE(publicKey);
+    res = SECP256K1::ECP_PUBLIC_KEY_VALIDATE(&PUBKEY);
     if (res != 0)
     {
         cout << " ECP Public Key Validation Failed " << endl;

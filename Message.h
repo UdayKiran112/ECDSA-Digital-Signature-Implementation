@@ -1,6 +1,7 @@
 #pragma once
 
 #include <bits/stdc++.h>
+#include "Key.h"
 #ifndef MESSAGE_H
 #define MESSAGE_H
 
@@ -10,30 +11,31 @@
 #include "Lib/config_big_B256_56.h"
 using namespace std;
 
-
 class Message
 {
 private:
     octet message;
     octet Hashvalue;
-    pair<B256_56::BIG, octet> Signature;
+    pair<FP,FP> Signature;
 
 public:
     Message();
     ~Message();
     Message(string message);
     core::octet getMessage();
-    core:: octet getHashvalue();
-    pair<B256_56::BIG, octet> getSignature();
+    core::octet getHashvalue();
+    pair<FP, FP> getSignature();
 
     void setMessage(core::octet message);
     void setHashvalue(core::octet Hashvalue);
-    void setSignature(pair<B256_56::BIG, core::octet> Signature);
+    void setSignature(pair<FP,FP> Signature);
 
     static void Concatenate_octet(octet *data1, octet *data2, octet *result);
     static void Hash_Function(octet *input, octet *output, int pad);
     static void add_octets(octet *data1, octet *data2, octet *result);
     static void multiply_octet(octet *data1, octet *data2, octet *result);
+    bool generateSignature(csprng *RNG, octet *privateKey, Message *msg);
+    bool verifySignature(Message *msg);
 };
 
 #endif // MESSAGE_H
