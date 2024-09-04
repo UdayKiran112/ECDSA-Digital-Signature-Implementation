@@ -10,12 +10,13 @@
 #include "Lib/eddsa_SECP256K1.h"
 #include "Lib/config_big_B256_56.h"
 using namespace std;
+using namespace SECP256K1;
 
 class Message
 {
 private:
-    octet message;
-    octet Hashvalue;
+    core::octet message;
+    core::octet Hashvalue;
     pair<FP,FP> Signature;
 
 public:
@@ -24,7 +25,7 @@ public:
     Message(string message);
     core::octet getMessage();
     core::octet getHashvalue();
-    pair<FP, FP> getSignature();
+    pair<SECP256K1::FP,SECP256K1::FP> getSignature();
 
     void setMessage(core::octet message);
     void setHashvalue(core::octet Hashvalue);

@@ -4,7 +4,7 @@ using namespace std;
 
 Key::~Key()
 {
-    memset(this->privateKey.val, 0, this->privateKey.len); // Zero out private key
+    delete[] privateKey.val;
 }
 
 Key::Key(csprng *RNG)
@@ -54,7 +54,6 @@ SECP256K1::ECP Key::getPublicKey()
 void Key::setPrivateKey(octet privateKey)
 {
     this->privateKey = privateKey;
-    memcpy(this->privateKey.val, privateKey.val, privateKey.len);
 }
 
 void Key::setPublicKey(SECP256K1::ECP publicKey)

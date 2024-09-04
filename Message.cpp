@@ -30,11 +30,16 @@ Message::~Message()
 // Constructor which takes string as input
 Message::Message(string message)
 {
+    cout << "Entered Constructor"<<endl;
     // Initialize message
     this->message.len = message.size();
     this->message.max = message.size();
     this->message.val = new char[message.size()];
     memcpy(this->message.val, message.c_str(), message.size());
+
+    cout << this->message.val;
+    OCT_output(&this->message);
+    cout<<endl;
 
     // Initialize Hashvalue
     this->Hashvalue.len = 32;
@@ -44,7 +49,7 @@ Message::Message(string message)
     // Functionalities done
     Hash_Function(&this->message, &this->Hashvalue, 0);
     setHashvalue(Hashvalue);
-    // TO DO
+    // TODO
 }
 
 /*
@@ -90,6 +95,22 @@ void Message::setSignature(pair<FP, FP> Signature)
 /*
     Other operations
 */
+
+// Function to convert octet to FP type
+void octet_to_FP(FP *fp, octet *octet)
+{
+    BIG b;
+    BIG_fromBytes(b, octet->val);
+    FP_nres(fp, b);
+}
+
+// Function to convert FP to octet type
+void FP_to_octet(octet *octet, FP *fp)
+{
+    BIG b;
+    FP_redc(b, fp);
+    BIG_toBytes(octet->val, b);
+}
 
 // Static method to compute a hash of an input octet and store it in the output octet
 void Message::Hash_Function(octet *input, octet *output, int pad)
@@ -224,7 +245,6 @@ bool Message::verifySignature(Message *msg, SECP256K1::ECP *publicKey)
     FP_inv(&s_inverse, &s, NULL); // s1
 
     // calculate R`= (h*s1) * G +(r * s1) * pubKey
-    SECP256K1::ECP R;
     FP temp_1, temp_2;
     FP_mul(&temp_1, &Hash, &s_inverse);            // temp_1 = h * s1
     FP_mul(&temp_2, &signature.first, &s_inverse); // temp_2 = r * s1
@@ -254,19 +274,4 @@ bool Message::verifySignature(Message *msg, SECP256K1::ECP *publicKey)
         return false;
     }
     return false;
-}
-
-// Function to convert octet to FP type
-void octet_to_FP(FP *fp, octet *octet)
-{
-    BIG b;
-    BIG_fromBytes(b, octet->val);
-    FP_nres(fp, b);
-}
-
-void FP_to_octet(octet *octet, FP *fp)
-{
-    BIG b;
-    FP_redc(b, fp);
-    BIG_toBytes(octet->val, b);
 }
