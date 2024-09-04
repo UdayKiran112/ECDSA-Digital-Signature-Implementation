@@ -164,7 +164,7 @@ void Message::multiply_octet(octet *data1, octet *data2, octet *result)
 bool Message::generateSignature(csprng *RNG, octet *privateKey, Message *msg)
 {
     Key random = Key(RNG);
-    pair<FP,FP> signature_temp;
+    pair<FP, FP> signature_temp;
 
     octet hashval = msg->getHashvalue();
 
@@ -192,11 +192,11 @@ bool Message::generateSignature(csprng *RNG, octet *privateKey, Message *msg)
 
     // Calculate signature s = (k^-1)∗(h+r∗privKey)(mod n)
     FP privKey, rval, h, temp1, temp2, rhs;
-    octet_to_FP(&h, &hashval); // h
+    octet_to_FP(&h, &hashval);         // h
     octet_to_FP(&privKey, privateKey); // privKey
-    FP_mul(&temp1, &rval, &privKey); // temp1 = r * privKey
-    FP_add(&temp2, &h, &temp1); // temp2 = h + r * privKey
-    FP_mul(&rhs, &k_inverse, &temp2); // rhs = (k^-1) * (h + r * privKey)(mod n)
+    FP_mul(&temp1, &rval, &privKey);   // temp1 = r * privKey
+    FP_add(&temp2, &h, &temp1);        // temp2 = h + r * privKey
+    FP_mul(&rhs, &k_inverse, &temp2);  // rhs = (k^-1) * (h + r * privKey)(mod n)
 
     // Copy Signature values to signature_temp
     FP_copy(&signature_temp.first, &r);
@@ -206,15 +206,54 @@ bool Message::generateSignature(csprng *RNG, octet *privateKey, Message *msg)
     return true;
 }
 
-bool Message::verifySignature(Message *msg)
+bool Message::verifySignature(Message *msg, SECP256K1::ECP *publicKey)
 {
-    pair<FP,FP> signature = this->getSignature();
+    pair<FP, FP> signature = this->getSignature();
+    SECP256K1::ECP G;
+    Key::setGeneratorPoint(&G);
 
-    octet hashval = msg->getHashvalue();
-    FP s = signature.second;
+    ECP pubKey;
+    ECP_copy(&pubKey, publicKey);
+
+    octet hashval = msg->getHashvalue(); // h
+    FP Hash;
+    octet_to_FP(&Hash, &hashval); // convert h to FP
+
+    FP s = signature.second; // s
     FP s_inverse;
-    FP_inv(&s_inverse, &s, NULL);
+    FP_inv(&s_inverse, &s, NULL); // s1
+
+    // calculate R`= (h*s1) * G +(r * s1) * pubKey
     SECP256K1::ECP R;
+    FP temp_1, temp_2;
+    FP_mul(&temp_1, &Hash, &s_inverse);            // temp_1 = h * s1
+    FP_mul(&temp_2, &signature.first, &s_inverse); // temp_2 = r * s1
+
+    octet t1, t2;
+    FP_to_octet(&t1, &temp_1); // convert temp_1 to octet
+    FP_to_octet(&t2, &temp_2); // convert temp_2 to octet
+
+    BIG r;
+    BIG_rcopy(r, CURVE_Order);
+
+    BIG t1n, t2n;
+    BIG_fromBytes(t1n, t1.val);
+    BIG_fromBytes(t2n, t2.val);
+
+    ECP_clmul2(&G, &pubKey, t1n, t2n, r);
+
+    FP r1 = G.x;
+    if (FP_equals(&signature.first, &r1))
+    {
+        cout << "Signature Verified " << endl;
+        return true;
+    }
+    else
+    {
+        cout << "Signature Not Verified " << endl;
+        return false;
+    }
+    return false;
 }
 
 // Function to convert octet to FP type

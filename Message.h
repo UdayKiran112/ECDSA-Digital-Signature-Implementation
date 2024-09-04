@@ -35,7 +35,7 @@ public:
     static void add_octets(octet *data1, octet *data2, octet *result);
     static void multiply_octet(octet *data1, octet *data2, octet *result);
     bool generateSignature(csprng *RNG, octet *privateKey, Message *msg);
-    bool verifySignature(Message *msg);
+    bool verifySignature(Message *msg,SECP256K1::ECP *publicKey);
 };
 
 #endif // MESSAGE_H
