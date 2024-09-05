@@ -4,7 +4,7 @@ using namespace std;
 
 Key::~Key()
 {
-    delete[] privateKey.val;
+    
 }
 
 Key::Key(csprng *RNG)
@@ -26,7 +26,9 @@ Key::Key(csprng *RNG)
     this->setPrivateKey(priv);
 
     // Initialise public key
-    SECP256K1::ECP pub;
+    char pub_val[2*EFS_SECP256K1+1];
+    octet pub = {0, sizeof(pub_val), pub_val};
+
 
     // Generate public key
     SECP256K1::ECP G;
@@ -36,9 +38,6 @@ Key::Key(csprng *RNG)
         throw runtime_error("Failed to generate public key");
     }
     this->setPublicKey(pub);
-
-    // Zero out sensitive data
-    memset(priv.val, 0, priv.len);
 }
 
 octet Key::getPrivateKey()
@@ -46,7 +45,7 @@ octet Key::getPrivateKey()
     return privateKey;
 }
 
-SECP256K1::ECP Key::getPublicKey()
+octet Key::getPublicKey()
 {
     return publicKey;
 }
@@ -56,7 +55,7 @@ void Key::setPrivateKey(octet privateKey)
     this->privateKey = privateKey;
 }
 
-void Key::setPublicKey(SECP256K1::ECP publicKey)
+void Key::setPublicKey(octet publicKey)
 {
     this->publicKey = publicKey;
 }
@@ -107,7 +106,7 @@ int Key::generatePrivateKey(csprng *randomNumberGenerator, octet *PrivateKey)
     return 0;
 }
 
-int Key::generatePublicKey(octet *PrivateKey, SECP256K1::ECP *publicKey, SECP256K1::ECP *generatorPoint)
+int Key::generatePublicKey(octet *PrivateKey, octet *publicKey, SECP256K1::ECP *generatorPoint)
 {
     using namespace SECP256K1;
     using namespace B256_56;
@@ -126,15 +125,14 @@ int Key::generatePublicKey(octet *PrivateKey, SECP256K1::ECP *publicKey, SECP256
     cout << "Public Key :" << endl;
     ECP_output(&G);
     cout << endl;
-    octet PUBKEY;
-    ECP_toOctet(&PUBKEY, &G, true);
+    ECP_toOctet(publicKey, &G, false);
 
     // Validating Public Key
-    res = SECP256K1::ECP_PUBLIC_KEY_VALIDATE(&PUBKEY);
+    res = SECP256K1::ECP_PUBLIC_KEY_VALIDATE(publicKey);
     if (res != 0)
     {
         cout << " ECP Public Key Validation Failed " << endl;
         return -1;
     }
-    return res;
+    return 0;
 }

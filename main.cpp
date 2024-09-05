@@ -37,16 +37,11 @@ int main()
     Key key(&RNG);
 
     // Initialize Message
-    string message;
-    cin >> message;
+    string message ="Hello World!";
     cout << message << endl;
     Message msg(message);
     octet Hashvalue = msg.getHashvalue();
     octet Messageval = msg.getMessage();
-
-    cout << "Messageval len: " << Messageval.len << endl;
-    cout << "Messageval max: " << Messageval.max << endl;
-    cout << "Messageval val: " << (void *)Messageval.val << endl; // Print pointer value to check if it's valid
 
     cout << "Message: ";
     OCT_output(&Messageval);

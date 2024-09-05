@@ -23,23 +23,20 @@ Message::Message()
 Message::~Message()
 {
     // Freeing Dynamically allocated memory for octet values
-    delete[] message.val;
-    delete[] Hashvalue.val;
+    if (message.val != nullptr)
+        delete[] message.val;
+    if (Hashvalue.val != nullptr)
+        delete[] Hashvalue.val;
 }
 
 // Constructor which takes string as input
 Message::Message(string message)
 {
-    cout << "Entered Constructor"<<endl;
     // Initialize message
     this->message.len = message.size();
     this->message.max = message.size();
     this->message.val = new char[message.size()];
     memcpy(this->message.val, message.c_str(), message.size());
-
-    cout << this->message.val;
-    OCT_output(&this->message);
-    cout<<endl;
 
     // Initialize Hashvalue
     this->Hashvalue.len = 32;
@@ -126,10 +123,6 @@ void Message::Hash_Function(octet *input, octet *output, int pad)
     BIG_rcopy(prime, Modulus); // Load the curve modulus
     BIG_mod(x, prime);         // Apply modulo operation to the BIG value
 
-    // Assign the resulting BIG value back to the octet
-    output->len = 32;
-    output->max = 32;
-    output->val = new char[32];
     BIG_toBytes(output->val, x); // Convert BIG back to bytes
 }
 
@@ -194,7 +187,9 @@ bool Message::generateSignature(csprng *RNG, octet *privateKey, Message *msg)
     cout << endl;
 
     octet k = random.getPrivateKey();
-    ECP R = random.getPublicKey();
+    octet R_oct = random.getPublicKey();
+    SECP256K1::ECP R;
+    ECP_fromOctet(&R, &R_oct);
 
     // Convert k to BIG
     BIG kval;
@@ -227,14 +222,14 @@ bool Message::generateSignature(csprng *RNG, octet *privateKey, Message *msg)
     return true;
 }
 
-bool Message::verifySignature(Message *msg, SECP256K1::ECP *publicKey)
+bool Message::verifySignature(Message *msg, octet *publicKey)
 {
     pair<FP, FP> signature = this->getSignature();
     SECP256K1::ECP G;
     Key::setGeneratorPoint(&G);
 
     ECP pubKey;
-    ECP_copy(&pubKey, publicKey);
+    ECP_fromOctet(&pubKey, publicKey);
 
     octet hashval = msg->getHashvalue(); // h
     FP Hash;
