@@ -43,6 +43,14 @@ Message::Message(string message, octet *privateKey, csprng *RNG)
     this->Hashvalue.max = 32;
     this->Hashvalue.val = new char[32];
 
+    // Initialize Signature
+    this->Signature.first.len = 32;
+    this->Signature.first.max = 32;
+    this->Signature.first.val = new char[32];
+    this->Signature.second.len = 32;
+    this->Signature.second.max = 32;
+    this->Signature.second.val = new char[32];
+
     // hashing Message
     octet hash_val;
     Hash_Function(&this->message, &hash_val, 0);
@@ -75,7 +83,7 @@ core::octet Message::getHashvalue()
 }
 
 // Signature getter
-pair<FP, FP> Message::getSignature()
+pair<octet, octet> Message::getSignature()
 {
     return Signature;
 }
@@ -93,9 +101,10 @@ void Message::setHashvalue(octet Hashvalue)
 }
 
 // Signature setter
-void Message::setSignature(pair<FP, FP> Signature)
+void Message::setSignature(pair<octet, octet> Signature)
 {
-    this->Signature = Signature;
+    this->Signature.first = Signature.first;
+    this->Signature.second = Signature.second;
 }
 
 /*
@@ -192,7 +201,7 @@ bool Message::generateSignature(csprng *RNG, octet *privateKey, Message *msg)
 {
     using namespace B256_56;
     Key random = Key(RNG);
-    pair<FP, FP> signature_temp;
+    pair<octet, octet> signature_temp;
 
     octet hashval = msg->getHashvalue();
 
@@ -204,9 +213,7 @@ bool Message::generateSignature(csprng *RNG, octet *privateKey, Message *msg)
     octet R_oct = random.getPublicKey();
     ECP R_point;
     ECP_fromOctet(&R_point, &R_oct);
-    cout << "Printing R point  :";
-    ECP_output(&R_point);
-    cout << endl;
+
     // Convert k to BIG
     BIG kval;
     BIG_fromBytes(kval, k.val);
@@ -254,8 +261,16 @@ bool Message::generateSignature(csprng *RNG, octet *privateKey, Message *msg)
     BIG_mul(temp3, invk, temp2); // temp3 = k^-1 * (h + r * privKey)
 
     // Convert BIG to FP
-    signature_temp.first = r;
-    FP_nres(&signature_temp.second, temp3);
+    signature_temp.first.len = 32;
+    signature_temp.first.max = 32;
+    signature_temp.first.val = new char[32];
+
+    signature_temp.second.len = 32;
+    signature_temp.second.max = 32;
+    signature_temp.second.val = new char[32];
+
+    BIG_toBytes(signature_temp.first.val, rval);
+    BIG_toBytes(signature_temp.second.val, temp3);
 
     this->setSignature(signature_temp);
     return true;
@@ -264,7 +279,7 @@ bool Message::generateSignature(csprng *RNG, octet *privateKey, Message *msg)
 bool Message::verifySignature(Message *msg, octet *publicKey)
 {
     cout << "Verifying signature..." << endl;
-    pair<FP, FP> signature = msg->getSignature();
+    pair<octet, octet> signature = msg->getSignature();
     SECP256K1::ECP G;
     Key::setGeneratorPoint(&G);
 
@@ -283,11 +298,11 @@ bool Message::verifySignature(Message *msg, octet *publicKey)
 
     // convert r to BIG
     BIG r;
-    FP_redc(r, &(signature.first));
+    BIG_fromBytes(r, signature.first.val);
 
     // convert s to BIG
     BIG s;
-    FP_redc(s, &(signature.second));
+    BIG_fromBytes(s, signature.second.val);
 
     // get s1 = s^-1 mod n
     BIG s1;
@@ -295,18 +310,16 @@ bool Message::verifySignature(Message *msg, octet *publicKey)
 
     // h* s1
     BIG temp1;
-    BIG_modmul(temp1, hashval_big, s1, mod);
+    BIG_mul(temp1, hashval_big, s1);
 
     //  r * s1
     BIG temp2;
-    BIG_modmul(temp2, r, s1, mod);
+    BIG_mul(temp2, r, s1);
 
     // temp1 * G + temp2 * pubKey
     ECP temp3;
     ECP_mul2(&G, &pubKey, temp1, temp2);
-    cout << "printing k* G Point:";
-    ECP_output(&G);
-    cout << endl;
+
     ECP_copy(&temp3, &G);
 
     // get FP from ECP
@@ -314,8 +327,37 @@ bool Message::verifySignature(Message *msg, octet *publicKey)
     FP r_dash = temp3.x;
     FP_redc(r1, &r_dash);
 
+    octet rval;
+    rval.len = 32;
+    rval.max = 32;
+    rval.val = new char[32];
+
+    // compare r and r1 in BIG
+    if(BIG_comp(r, r1) != 0)
+    {
+        cout << "Signature not verified" << endl;
+        return false;
+    }
+    else{
+        cout << "Signature verified" << endl;
+        return true;
+    }
+
+    BIG_toBytes(rval.val, r);
+    OCT_output(&rval);
+    cout << endl;
+
+    octet r_dash_val;
+    r_dash_val.len = 32;
+    r_dash_val.max = 32;
+    r_dash_val.val = new char[32];
+
+    BIG_toBytes(r_dash_val.val, r1);
+    OCT_output(&r_dash_val);
+    cout << endl;
+
     // check if r == r1
-    if (BIG_comp(r, r1) == 0)
+    if (OCT_comp(&rval, &r_dash_val) == 1)
     {
         cout << "Signature verified" << endl;
         return true;

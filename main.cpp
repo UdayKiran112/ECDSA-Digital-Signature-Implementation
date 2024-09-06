@@ -104,12 +104,12 @@ int main()
     cout << endl;
 
     // print Signature
-    pair<SECP256K1::FP, SECP256K1::FP> signature = msg.getSignature();
+    pair<octet,octet> signature = msg.getSignature();
     cout << "Signature: ";
     cout << "( ";
-    FP_output(&signature.first);
+    OCT_output(&signature.first);
     cout << " , ";
-    FP_output(&signature.second);
+    OCT_output(&signature.second);
     cout << " )";
     cout << endl;
 

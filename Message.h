@@ -17,7 +17,7 @@ class Message
 private:
     core::octet message;
     core::octet Hashvalue;
-    pair<FP,FP> Signature;
+    pair<octet,octet> Signature;
 
 public:
     Message();
@@ -25,11 +25,11 @@ public:
     Message(string message, octet* privateKey, csprng *RNG);
     core::octet getMessage();
     core::octet getHashvalue();
-    pair<SECP256K1::FP,SECP256K1::FP> getSignature();
+    pair<core::octet, core::octet> getSignature();
 
     void setMessage(core::octet message);
     void setHashvalue(core::octet Hashvalue);
-    void setSignature(pair<FP,FP> Signature);
+    void setSignature(pair<octet,octet> Signature);
 
     static void Concatenate_octet(octet *data1, octet *data2, octet *result);
     static void Hash_Function(octet *input, octet *output, int pad);
