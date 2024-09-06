@@ -202,6 +202,11 @@ bool Message::generateSignature(csprng *RNG, octet *privateKey, Message *msg)
 
     octet k = random.getPrivateKey();
     octet R_oct = random.getPublicKey();
+    ECP R_point;
+    ECP_fromOctet(&R_point, &R_oct);
+    cout << "Printing R point  :";
+    ECP_output(&R_point);
+    cout << endl;
     // Convert k to BIG
     BIG kval;
     BIG_fromBytes(kval, k.val);
@@ -238,15 +243,15 @@ bool Message::generateSignature(csprng *RNG, octet *privateKey, Message *msg)
 
     // r * privKey
     BIG temp;
-    BIG_modmul(temp, rval, xval, mod); // temp = r * privKey
+    BIG_mul(temp, rval, xval); // temp = r * privKey
 
     // h + r * privKey
     BIG temp2;
-    BIG_modadd(temp2, hval, temp, mod); // temp2 = h + r * privKey
+    BIG_add(temp2, hval, temp); // temp2 = h + r * privKey
 
     // k^-1 * (h + r * privKey)
     BIG temp3;
-    BIG_modmul(temp3, invk, temp2, mod); // temp3 = k^-1 * (h + r * privKey)
+    BIG_mul(temp3, invk, temp2); // temp3 = k^-1 * (h + r * privKey)
 
     // Convert BIG to FP
     signature_temp.first = r;
@@ -299,6 +304,9 @@ bool Message::verifySignature(Message *msg, octet *publicKey)
     // temp1 * G + temp2 * pubKey
     ECP temp3;
     ECP_mul2(&G, &pubKey, temp1, temp2);
+    cout << "printing k* G Point:";
+    ECP_output(&G);
+    cout << endl;
     ECP_copy(&temp3, &G);
 
     // get FP from ECP
