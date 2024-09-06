@@ -77,9 +77,6 @@ void Key::setGeneratorPoint(SECP256K1::ECP *G)
     else
     {
         ECP_copy(G, &P);
-        cout << "Generator Point :" << endl;
-        ECP_output(G);
-        cout << endl;
     }
 }
 
@@ -121,10 +118,6 @@ int Key::generatePublicKey(octet *PrivateKey, octet *publicKey, SECP256K1::ECP *
     ECP_copy(&G, generatorPoint);
     ECP_clmul(&G, secret, curve_order);
 
-    // Print Public Key
-    cout << "Public Key :" << endl;
-    ECP_output(&G);
-    cout << endl;
     ECP_toOctet(publicKey, &G, false);
 
     // Validating Public Key

@@ -36,10 +36,18 @@ int main()
 
     Key key(&RNG);
 
+    // Store private key in a variable
+    octet privateKey = key.getPrivateKey();
+
+    // Store public key in a variable
+    octet publicKey = key.getPublicKey();
+
     // Initialize Message
-    string message ="Hello World!";
-    cout << message << endl;
-    Message msg(message);
+    string message = "Hello World!";
+    cout << "Message: " << message << endl;
+    Message msg(message, &privateKey, &RNG);
+
+    // get Hashvalue and Message
     octet Hashvalue = msg.getHashvalue();
     octet Messageval = msg.getMessage();
 
@@ -50,6 +58,19 @@ int main()
     cout << "Hashvalue: ";
     OCT_output(&Hashvalue);
     cout << endl;
+
+    // print Signature
+    pair<SECP256K1::FP, SECP256K1::FP> signature = msg.getSignature();
+    cout << "Signature: ";
+    cout << "( ";
+    FP_output(&signature.first);
+    cout << " , ";
+    FP_output(&signature.second);
+    cout << " )";
+    cout << endl;
+
+    bool verified = Message::verifySignature(&msg, &publicKey);
+    cout << "Verification: " << verified << endl;
 
     // Clean up the CSPRNG
     core::KILL_CSPRNG(&RNG);

@@ -22,7 +22,7 @@ private:
 public:
     Message();
     ~Message();
-    Message(string message);
+    Message(string message, octet* privateKey, csprng *RNG);
     core::octet getMessage();
     core::octet getHashvalue();
     pair<SECP256K1::FP,SECP256K1::FP> getSignature();
@@ -36,7 +36,7 @@ public:
     static void add_octets(octet *data1, octet *data2, octet *result);
     static void multiply_octet(octet *data1, octet *data2, octet *result);
     bool generateSignature(csprng *RNG, octet *privateKey, Message *msg);
-    bool verifySignature(Message *msg,octet *publicKey);
+    static bool verifySignature(Message *msg,octet *publicKey);
 };
 
 #endif // MESSAGE_H

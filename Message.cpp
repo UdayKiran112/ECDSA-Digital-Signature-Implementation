@@ -30,7 +30,7 @@ Message::~Message()
 }
 
 // Constructor which takes string as input
-Message::Message(string message)
+Message::Message(string message, octet *privateKey, csprng *RNG)
 {
     // Initialize message
     this->message.len = message.size();
@@ -43,10 +43,19 @@ Message::Message(string message)
     this->Hashvalue.max = 32;
     this->Hashvalue.val = new char[32];
 
-    // Functionalities done
-    Hash_Function(&this->message, &this->Hashvalue, 0);
-    setHashvalue(Hashvalue);
-    // TODO
+    // hashing Message
+    octet hash_val;
+    Hash_Function(&this->message, &hash_val, 0);
+    setHashvalue(hash_val);
+
+    // Initialize Signature
+    if (!generateSignature(RNG, privateKey, this))
+    {
+        cout << "Signature generation failed" << endl;
+        exit(1);
+    }
+
+    cout << "Signature generated" << endl;
 }
 
 /*
@@ -123,6 +132,10 @@ void Message::Hash_Function(octet *input, octet *output, int pad)
     BIG_rcopy(prime, Modulus); // Load the curve modulus
     BIG_mod(x, prime);         // Apply modulo operation to the BIG value
 
+    output->val = new char[32];
+    output->len = 32;
+    output->max = 32;
+
     BIG_toBytes(output->val, x); // Convert BIG back to bytes
 }
 
@@ -177,6 +190,7 @@ void Message::multiply_octet(octet *data1, octet *data2, octet *result)
 
 bool Message::generateSignature(csprng *RNG, octet *privateKey, Message *msg)
 {
+    using namespace B256_56;
     Key random = Key(RNG);
     pair<FP, FP> signature_temp;
 
@@ -188,35 +202,55 @@ bool Message::generateSignature(csprng *RNG, octet *privateKey, Message *msg)
 
     octet k = random.getPrivateKey();
     octet R_oct = random.getPublicKey();
-    SECP256K1::ECP R;
-    ECP_fromOctet(&R, &R_oct);
-
     // Convert k to BIG
     BIG kval;
     BIG_fromBytes(kval, k.val);
 
-    // Convert BIG value of k to FP
-    FP k_fp;
-    FP_nres(&k_fp, kval);
+    // Convert hashval to BIG
+    BIG hval;
+    BIG_fromBytes(hval, hashval.val);
 
-    // Extract x coordinate of R
-    FP r = R.x;
+    // Convert privateKey to BIG
+    BIG xval;
+    BIG_fromBytes(xval, privateKey->val);
 
-    // Calculate Modular Inverse  of k
-    FP k_inverse;
-    FP_inv(&k_inverse, &k_fp, NULL);
+    // R_oct to ECP
+    ECP R;
+    ECP_fromOctet(&R, &R_oct);
 
-    // Calculate signature s = (k^-1)∗(h+r∗privKey)(mod n)
-    FP privKey, rval, h, temp1, temp2, rhs;
-    octet_to_FP(&h, &hashval);         // h
-    octet_to_FP(&privKey, privateKey); // privKey
-    FP_mul(&temp1, &rval, &privKey);   // temp1 = r * privKey
-    FP_add(&temp2, &h, &temp1);        // temp2 = h + r * privKey
-    FP_mul(&rhs, &k_inverse, &temp2);  // rhs = (k^-1) * (h + r * privKey)(mod n)
+    // Extract r from R
+    FP r;
+    r = R.x;
 
-    // Copy Signature values to signature_temp
-    FP_copy(&signature_temp.first, &r);
-    FP_copy(&signature_temp.second, &rhs);
+    // convert r to BIG
+    BIG rval;
+    FP_redc(rval, &r);
+
+    // copy Modulus to non const BIG
+    BIG mod;
+    BIG_rcopy(mod, Modulus);
+
+    // Now getting into equation s = k^-1 * (h + r* privKey)(mod n)
+
+    // Convert k to k^-1
+    BIG invk;
+    BIG_invmodp(invk, kval, mod);
+
+    // r * privKey
+    BIG temp;
+    BIG_modmul(temp, rval, xval, mod); // temp = r * privKey
+
+    // h + r * privKey
+    BIG temp2;
+    BIG_modadd(temp2, hval, temp, mod); // temp2 = h + r * privKey
+
+    // k^-1 * (h + r * privKey)
+    BIG temp3;
+    BIG_modmul(temp3, invk, temp2, mod); // temp3 = k^-1 * (h + r * privKey)
+
+    // Convert BIG to FP
+    signature_temp.first = r;
+    FP_nres(&signature_temp.second, temp3);
 
     this->setSignature(signature_temp);
     return true;
@@ -224,7 +258,8 @@ bool Message::generateSignature(csprng *RNG, octet *privateKey, Message *msg)
 
 bool Message::verifySignature(Message *msg, octet *publicKey)
 {
-    pair<FP, FP> signature = this->getSignature();
+    cout << "Verifying signature..." << endl;
+    pair<FP, FP> signature = msg->getSignature();
     SECP256K1::ECP G;
     Key::setGeneratorPoint(&G);
 
@@ -232,41 +267,54 @@ bool Message::verifySignature(Message *msg, octet *publicKey)
     ECP_fromOctet(&pubKey, publicKey);
 
     octet hashval = msg->getHashvalue(); // h
-    FP Hash;
-    octet_to_FP(&Hash, &hashval); // convert h to FP
 
-    FP s = signature.second; // s
-    FP s_inverse;
-    FP_inv(&s_inverse, &s, NULL); // s1
+    // Convert hashval to BIG
+    BIG hashval_big;
+    BIG_fromBytes(hashval_big, hashval.val);
 
-    // calculate R`= (h*s1) * G +(r * s1) * pubKey
-    FP temp_1, temp_2;
-    FP_mul(&temp_1, &Hash, &s_inverse);            // temp_1 = h * s1
-    FP_mul(&temp_2, &signature.first, &s_inverse); // temp_2 = r * s1
+    // COnvert Modulus to non const BIG
+    BIG mod;
+    BIG_rcopy(mod, Modulus);
 
-    octet t1, t2;
-    FP_to_octet(&t1, &temp_1); // convert temp_1 to octet
-    FP_to_octet(&t2, &temp_2); // convert temp_2 to octet
-
+    // convert r to BIG
     BIG r;
-    BIG_rcopy(r, CURVE_Order);
+    FP_redc(r, &(signature.first));
 
-    BIG t1n, t2n;
-    BIG_fromBytes(t1n, t1.val);
-    BIG_fromBytes(t2n, t2.val);
+    // convert s to BIG
+    BIG s;
+    FP_redc(s, &(signature.second));
 
-    ECP_clmul2(&G, &pubKey, t1n, t2n, r);
+    // get s1 = s^-1 mod n
+    BIG s1;
+    BIG_invmodp(s1, s, mod);
 
-    FP r1 = G.x;
-    if (FP_equals(&signature.first, &r1))
+    // h* s1
+    BIG temp1;
+    BIG_modmul(temp1, hashval_big, s1, mod);
+
+    //  r * s1
+    BIG temp2;
+    BIG_modmul(temp2, r, s1, mod);
+
+    // temp1 * G + temp2 * pubKey
+    ECP temp3;
+    ECP_mul2(&G, &pubKey, temp1, temp2);
+    ECP_copy(&temp3, &G);
+
+    // get FP from ECP
+    BIG r1;
+    FP r_dash = temp3.x;
+    FP_redc(r1, &r_dash);
+
+    // check if r == r1
+    if (BIG_comp(r, r1) == 0)
     {
-        cout << "Signature Verified " << endl;
+        cout << "Signature verified" << endl;
         return true;
     }
     else
     {
-        cout << "Signature Not Verified " << endl;
+        cout << "Signature not verified" << endl;
         return false;
     }
-    return false;
 }
