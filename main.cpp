@@ -80,6 +80,12 @@ int main()
 
     Key key(&RNG);
 
+    ECP G;
+    Key::setGeneratorPoint(&G);
+    cout<<"Generator Point :";
+    ECP_output(&G);
+    cout<<endl;
+
     // Store private key in a variable
     octet privateKey = key.getPrivateKey();
 
