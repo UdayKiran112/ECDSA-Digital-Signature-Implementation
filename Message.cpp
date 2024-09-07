@@ -211,8 +211,6 @@ bool Message::generateSignature(csprng *RNG, octet *privateKey, Message *msg)
 
     octet k = random.getPrivateKey();
     octet R_oct = random.getPublicKey();
-    ECP R_point;
-    ECP_fromOctet(&R_point, &R_oct);
 
     // Convert k to BIG
     BIG kval;
@@ -230,36 +228,46 @@ bool Message::generateSignature(csprng *RNG, octet *privateKey, Message *msg)
     ECP R;
     ECP_fromOctet(&R, &R_oct);
 
-    // Extract r from R
-    FP r;
-    r = R.x;
+    // Extract r from R using ECP_get
+    BIG x, y;
+    ECP_get(x, y, &R);
 
     // convert r to BIG
     BIG rval;
-    FP_redc(rval, &r);
+    BIG_copy(rval, x);
 
-    // copy Modulus to non const BIG
+    // copy CURVE_Order to non const BIG
     BIG mod;
-    BIG_rcopy(mod, Modulus);
+    BIG_rcopy(mod, CURVE_Order);
 
     // Now getting into equation s = k^-1 * (h + r* privKey)(mod n)
 
     // Convert k to k^-1
     BIG invk;
     BIG_invmodp(invk, kval, mod);
+    if (BIG_iszilch(invk))
+    {
+        cerr << "Error: k^-1 = 0" << endl;
+        return false;
+    }
 
     // r * privKey
     BIG temp;
-    BIG_mul(temp, rval, xval); // temp = r * privKey
+    BIG_modmul(temp, rval, xval, mod); // temp = r * privKey
 
     // h + r * privKey
     BIG temp2;
-    BIG_add(temp2, hval, temp); // temp2 = h + r * privKey
+    BIG_modadd(temp2, hval, temp, mod); // temp2 = h + r * privKey
 
     // k^-1 * (h + r * privKey)
     BIG temp3;
-    BIG_mul(temp3, invk, temp2); // temp3 = k^-1 * (h + r * privKey)
+    BIG_modmul(temp3, invk, temp2, mod); // temp3 = k^-1 * (h + r * privKey)
 
+    if (BIG_iszilch(temp3))
+    {
+        cerr << "Error: k^-1 * (h + r * privKey) = 0" << endl;
+        return false;
+    }
     // Convert BIG to FP
     signature_temp.first.len = 32;
     signature_temp.first.max = 32;
@@ -279,7 +287,9 @@ bool Message::generateSignature(csprng *RNG, octet *privateKey, Message *msg)
 bool Message::verifySignature(Message *msg, octet *publicKey)
 {
     cout << "Verifying signature..." << endl;
+
     pair<octet, octet> signature = msg->getSignature();
+
     SECP256K1::ECP G;
     Key::setGeneratorPoint(&G);
 
@@ -292,9 +302,9 @@ bool Message::verifySignature(Message *msg, octet *publicKey)
     BIG hashval_big;
     BIG_fromBytes(hashval_big, hashval.val);
 
-    // COnvert Modulus to non const BIG
+    // COnvert CURVE_Order to non const BIG
     BIG mod;
-    BIG_rcopy(mod, Modulus);
+    BIG_rcopy(mod, CURVE_Order);
 
     // convert r to BIG
     BIG r;
@@ -310,22 +320,23 @@ bool Message::verifySignature(Message *msg, octet *publicKey)
 
     // h* s1
     BIG temp1;
-    BIG_mul(temp1, hashval_big, s1);
+    BIG_modmul(temp1, hashval_big, s1, mod);
 
     //  r * s1
     BIG temp2;
-    BIG_mul(temp2, r, s1);
+    BIG_modmul(temp2, r, s1, mod);
 
     // temp1 * G + temp2 * pubKey
     ECP temp3;
-    ECP_mul2(&G, &pubKey, temp1, temp2);
+    ECP_clmul2(&G, &pubKey, temp1, temp2, mod);
 
     ECP_copy(&temp3, &G);
 
-    // get FP from ECP
-    BIG r1;
-    FP r_dash = temp3.x;
-    FP_redc(r1, &r_dash);
+    // extract x coordinate of temp3 using ECP_get
+    BIG r1, y_coord;
+    ECP_get(r1, y_coord, &temp3);
+
+    BIG_mod(r1, mod);
 
     octet rval;
     rval.len = 32;
@@ -333,12 +344,13 @@ bool Message::verifySignature(Message *msg, octet *publicKey)
     rval.val = new char[32];
 
     // compare r and r1 in BIG
-    if(BIG_comp(r, r1) != 0)
+    if (BIG_comp(r, r1) != 0)
     {
         cout << "Signature not verified" << endl;
         return false;
     }
-    else{
+    else
+    {
         cout << "Signature verified" << endl;
         return true;
     }

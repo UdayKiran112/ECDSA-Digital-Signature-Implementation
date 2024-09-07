@@ -6,7 +6,7 @@ using namespace std;
 using namespace B256_56;
 using namespace SECP256K1;
 
-bool checkFunction(csprng*RNG,ECP* generatorPoint)
+bool checkFunction(csprng *RNG, ECP *generatorPoint)
 {
     Key pair1 = Key(RNG);
     Key pair2 = Key(RNG);
@@ -16,7 +16,7 @@ bool checkFunction(csprng*RNG,ECP* generatorPoint)
 
     Key::setGeneratorPoint(generatorPoint);
 
-    ECP A,B;
+    ECP A, B;
     BIG curve_order;
 
     BIG alpha_new, beta_new;
@@ -36,11 +36,11 @@ bool checkFunction(csprng*RNG,ECP* generatorPoint)
     ECP_copy(&lhs, generatorPoint);
     ECP_clmul(&lhs, combined, curve_order);
 
-    ECP_add(&A,&B);
+    ECP_add(&A, &B);
     ECP rhs;
-    ECP_copy(&rhs,&A);
+    ECP_copy(&rhs, &A);
 
-    if( ECP_equals(&lhs, &rhs) )
+    if (ECP_equals(&lhs, &rhs))
     {
         return true;
     }
@@ -95,18 +95,9 @@ int main()
     octet Hashvalue = msg.getHashvalue();
     octet Messageval = msg.getMessage();
 
-    cout << "Message: ";
-    OCT_output(&Messageval);
-    cout << endl;
-
-    cout << "Hashvalue: ";
-    OCT_output(&Hashvalue);
-    cout << endl;
-
     // print Signature
-    pair<octet,octet> signature = msg.getSignature();
-    cout << "Signature: ";
-    cout << "( ";
+    pair<octet, octet> signature = msg.getSignature();
+    cout << "Signature: (";
     OCT_output(&signature.first);
     cout << " , ";
     OCT_output(&signature.second);
@@ -114,10 +105,11 @@ int main()
     cout << endl;
 
     bool verified = Message::verifySignature(&msg, &publicKey);
-    cout << "Verification: " << verified << endl;
+    cout << "Verification: " << bool(verified) << endl;
 
     ECP gnpnt;
     Key::setGeneratorPoint(&gnpnt);
+
     bool check = checkFunction(&RNG, &gnpnt);
     cout << "Check: " << check << endl;
 
