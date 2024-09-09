@@ -39,9 +39,9 @@ Message::Message(string message, octet *privateKey, csprng *RNG)
     memcpy(this->message.val, message.c_str(), message.size());
 
     // Initialize Hashvalue
-    this->Hashvalue.len = 128;
-    this->Hashvalue.max = 128;
-    this->Hashvalue.val = new char[128];
+    this->Hashvalue.len = 32;
+    this->Hashvalue.max = 32;
+    this->Hashvalue.val = new char[32];
 
     // Initialize Signature
     this->Signature.first.len = 32;
@@ -53,6 +53,10 @@ Message::Message(string message, octet *privateKey, csprng *RNG)
 
     // hashing Message
     octet hash_val;
+    hash_val.len = 32;
+    hash_val.max = 32;
+    hash_val.val = new char[32];
+    
     Hash_Function(&this->message, &hash_val, 0);
     setHashvalue(hash_val);
 
@@ -132,16 +136,9 @@ void Message::Hash_Function(octet *input, octet *output, int pad)
 {
     int n = -1;
     // Perform hashing using the GPhash function (e.g., SHA256)
-    GPhash(MC_SHA2, 32, output, 0, pad, input, n, nullptr);
+    SPhash(SHA256, 32, output, input);
 
-    // Convert the hash result into a BIG type for further manipulation
-    BIG x, prime;
-    BIG_fromBytes(x, output->val); // Convert bytes to BIG
-    BIG_zero(prime);
-    BIG_rcopy(prime, Modulus); // Load the curve modulus
-    BIG_mod(x, prime);         // Apply modulo operation to the BIG value
-
-    BIG_toBytes(output->val, x); // Convert BIG back to bytes
+    
 }
 
 // Static method to concatenate two octets
