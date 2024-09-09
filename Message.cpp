@@ -56,8 +56,8 @@ Message::Message(string message, octet *privateKey, csprng *RNG)
     hash_val.len = 32;
     hash_val.max = 32;
     hash_val.val = new char[32];
-    
-    Hash_Function(&this->message, &hash_val, 0);
+
+    Hash_Function(&this->message, &hash_val);
     setHashvalue(hash_val);
 
     // Initialize Signature
@@ -132,12 +132,11 @@ void FP_to_octet(octet *octet, FP *fp)
 }
 
 // Static method to compute a hash of an input octet and store it in the output octet
-void Message::Hash_Function(octet *input, octet *output, int pad)
+void Message::Hash_Function(octet *input, octet *output)
 {
     int n = -1;
     // Perform hashing using the GPhash function (e.g., SHA256)
-    SPhash(SHA256, 32, output, input);
-
+    SPhash(MC_SHA2, 32, output, input);
     
 }
 
