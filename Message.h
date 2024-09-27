@@ -32,7 +32,7 @@ public:
     void setSignature(pair<octet,octet> Signature);
 
     static void Concatenate_octet(octet *data1, octet *data2, octet *result);
-    static void Hash_Function(octet *input, octet *output);
+    static void Hash_Function(int hlen,octet *input, octet *output);
     static void add_octets(octet *data1, octet *data2, octet *result);
     static void multiply_octet(octet *data1, octet *data2, octet *result);
     bool generateSignature(csprng *RNG, octet *privateKey, Message *msg);
