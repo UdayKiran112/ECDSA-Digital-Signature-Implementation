@@ -13,6 +13,9 @@ Key::Key(csprng *RNG)
         throw invalid_argument("Random Number Generator is null");
     }
 
+    SECP256K1::ECP G;
+    setGeneratorPoint(&G);
+
     // Initialise private key
     char priv_val[EGS_SECP256K1];
     octet priv = {0, sizeof(priv_val), priv_val};
@@ -29,8 +32,6 @@ Key::Key(csprng *RNG)
     octet pub = {0, sizeof(pub_val), pub_val};
 
     // Generate public key
-    SECP256K1::ECP G;
-    setGeneratorPoint(&G);
     if (generatePublicKey(&priv, &pub, &G) != 0)
     {
         throw runtime_error("Failed to generate public key");

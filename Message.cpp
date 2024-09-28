@@ -139,10 +139,7 @@ void Message::Hash_Function(int hlen, octet *input, octet *output)
     output->len = hlen;
     output->max = hlen;
     output->val = new char[hlen];
-
-    BIG out;
-    BIG_fromBytesLen(out, H.val, hlen);
-    BIG_toBytes(output->val, out);
+    memcpy(output->val, H.val, hlen);
 }
 
 // Static method to concatenate two octets
