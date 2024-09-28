@@ -248,6 +248,11 @@ bool Message::generateSignature(csprng *RNG, octet *privateKey, Message *msg)
         ECP_output(&R);
         cout << endl;
 
+        if(ECP_isinf(&R))
+        {
+            cerr << "Error: Invalid public key during signature generation." << endl;
+        }
+
         // Extract r from R using ECP_get
         ECP_get(x, x, &R);
 
@@ -270,7 +275,7 @@ bool Message::generateSignature(csprng *RNG, octet *privateKey, Message *msg)
         if (BIG_iszilch(invk))
         {
             cerr << "Error: k^-1 = 0" << endl;
-            return false;
+            continue;
         }
 
         // r * privKey
@@ -286,11 +291,11 @@ bool Message::generateSignature(csprng *RNG, octet *privateKey, Message *msg)
 
     } while (BIG_iszilch(temp));
 
-    if (BIG_iszilch(temp))
-    {
-        cerr << "Error: k^-1 * (h + r * privKey) = 0" << endl;
-        return ECDH_ERROR;
-    }
+    // if (BIG_iszilch(temp))
+    // {
+    //     cerr << "Error: k^-1 * (h + r * privKey) = 0" << endl;
+    //     return false;
+    // }
 
     // Convert BIG to FP
     signature_temp.first.len = EGS_SECP256K1;
