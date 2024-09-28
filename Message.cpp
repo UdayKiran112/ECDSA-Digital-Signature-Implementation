@@ -199,6 +199,9 @@ bool Message::generateSignature(csprng *RNG, octet *privateKey, Message *msg)
 
     octet hashval = msg->getHashvalue();
 
+    ECP G;
+    ECP_generator(&G);
+
     // Output hash value
     cout << "Hash value: ";
     OCT_output(&hashval);
@@ -207,7 +210,6 @@ bool Message::generateSignature(csprng *RNG, octet *privateKey, Message *msg)
     // All declarations
     BIG kval, hval, x, mod, w, rval, maskedPrivKey, invk, temp, privval;
     ECP R;
-    octet k, R_oct;
 
     int blen = hashval.len;
     if (hashval.len > EGS_SECP256K1)
@@ -220,22 +222,27 @@ bool Message::generateSignature(csprng *RNG, octet *privateKey, Message *msg)
 
     do
     {
-        Key random(RNG);
-        k = random.getPrivateKey();
-        R_oct = random.getPublicKey();
+        // Key random(RNG);
+        // k = random.getPrivateKey();
+        // R_oct = random.getPublicKey();
 
-        // validate R_oct
-        if (ECP_PUBLIC_KEY_VALIDATE(&R_oct) != 0)
-        {
-            cerr << "Error: Invalid public key during signature generation." << endl;
-            return false;
-        }
+        BIG_randomnum(kval, mod, RNG);
+        ECP_copy(&R, &G);
 
-        // Convert k( random private key) to BIG
-        BIG_fromBytes(kval, k.val);
+        ECP_clmul(&R, kval, mod);
 
-        // R_oct to ECP
-        ECP_fromOctet(&R, &R_oct);
+        // // validate R_oct
+        // if (ECP_PUBLIC_KEY_VALIDATE(&R_oct) != 0)
+        // {
+        //     cerr << "Error: Invalid public key during signature generation." << endl;
+        //     return false;
+        // }
+
+        // // Convert k( random private key) to BIG
+        // BIG_fromBytes(kval, k.val);
+
+        // // R_oct to ECP
+        // ECP_fromOctet(&R, &R_oct);
 
         cout << " Printing R point: " << endl;
         ECP_output(&R);
