@@ -139,7 +139,10 @@ void Message::Hash_Function(int hlen, octet *input, octet *output)
     output->len = hlen;
     output->max = hlen;
     output->val = new char[hlen];
-    memcpy(output->val, H.val, hlen);
+
+    BIG out;
+    BIG_fromBytesLen(out, H.val, hlen);
+    BIG_toBytes(output->val, out);
 }
 
 // Static method to concatenate two octets
@@ -199,9 +202,15 @@ bool Message::generateSignature(csprng *RNG, octet *privateKey, Message *msg)
 
     octet hashval = msg->getHashvalue();
 
+    // Output hash value
+    cout << "Hash value: ";
+    OCT_output(&hashval);
+    cout << endl;
+
     // All declarations
     BIG kval, hval, x, mod, w, rval, maskedPrivKey, invk, temp, privval;
     ECP R;
+    octet k, R_oct;
 
     int blen = hashval.len;
     if (hashval.len > EGS_SECP256K1)
@@ -212,21 +221,28 @@ bool Message::generateSignature(csprng *RNG, octet *privateKey, Message *msg)
     // Convert hashval to BIG
     BIG_fromBytesLen(hval, hashval.val, blen);
 
-    cout << "Hash value in BIG representation: ";
-    BIG_output(hval);
-    cout << endl;
-
     do
     {
-        Key random = Key(RNG);
-        octet k = random.getPrivateKey();
-        octet R_oct = random.getPublicKey();
+        Key random(RNG);
+        k = random.getPrivateKey();
+        R_oct = random.getPublicKey();
+
+        // validate R_oct
+        if (ECP_PUBLIC_KEY_VALIDATE(&R_oct) != 0)
+        {
+            cerr << "Error: Invalid public key during signature generation." << endl;
+            return false;
+        }
 
         // Convert k( random private key) to BIG
         BIG_fromBytes(kval, k.val);
 
         // R_oct to ECP
         ECP_fromOctet(&R, &R_oct);
+
+        cout << " Printing R point: " << endl;
+        ECP_output(&R);
+        cout << endl;
 
         // Extract r from R using ECP_get
         ECP_get(x, x, &R);
@@ -309,11 +325,7 @@ bool Message::verifySignature(Message *msg, octet *publicKey)
         return false;
     }
 
-    octet hashval = msg->getHashvalue(); // h
-
-    cout << "Hash value in Octet representation: ";
-    OCT_output(&hashval);
-    cout << endl;
+    octet hashval = msg->getHashvalue(); // hash value of message
 
     int blen = hashval.len;
     if (hashval.len > EGS_SECP256K1)
@@ -361,6 +373,11 @@ bool Message::verifySignature(Message *msg, octet *publicKey)
             {
                 ECP_get(r1, r1, &pubKey);
                 BIG_mod(r1, mod);
+
+                cout << "r1: ";
+                BIG_output(r1);
+                cout << endl;
+
                 if (BIG_comp(r1, r) != 0)
                 {
                     res = ECDH_ERROR;

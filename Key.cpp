@@ -4,7 +4,6 @@ using namespace std;
 
 Key::~Key()
 {
-    
 }
 
 Key::Key(csprng *RNG)
@@ -26,9 +25,8 @@ Key::Key(csprng *RNG)
     this->setPrivateKey(priv);
 
     // Initialise public key
-    char pub_val[2*EFS_SECP256K1+1];
+    char pub_val[2 * EFS_SECP256K1 + 1];
     octet pub = {0, sizeof(pub_val), pub_val};
-
 
     // Generate public key
     SECP256K1::ECP G;
@@ -117,6 +115,11 @@ int Key::generatePublicKey(octet *PrivateKey, octet *publicKey, SECP256K1::ECP *
     BIG_fromBytes(secret, PrivateKey->val);
     ECP_copy(&G, generatorPoint);
     ECP_clmul(&G, secret, curve_order);
+
+    if (ECP_isinf(&G) == 1)
+    {
+        return -1;
+    }
 
     ECP_toOctet(publicKey, &G, false);
 

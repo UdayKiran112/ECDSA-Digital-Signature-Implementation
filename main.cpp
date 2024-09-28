@@ -82,15 +82,30 @@ int main()
 
     ECP G;
     Key::setGeneratorPoint(&G);
-    cout<<"Generator Point :";
+    cout << "Generator Point :";
     ECP_output(&G);
-    cout<<endl;
+    cout << endl;
 
     // Store private key in a variable
     octet privateKey = key.getPrivateKey();
 
+    // print private key
+    cout << "Private Key: ";
+    OCT_output(&privateKey);
+    cout << endl;
+
     // Store public key in a variable
     octet publicKey = key.getPublicKey();
+
+    if (ECP_PUBLIC_KEY_VALIDATE(&publicKey) == 0)
+    {
+        return 0;
+    }
+
+    // print public key
+    cout << "Public Key: ";
+    OCT_output(&publicKey);
+    cout << endl;
 
     // Initialize Message
     string message = "Hello World!";
