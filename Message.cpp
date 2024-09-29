@@ -53,7 +53,7 @@ Message::Message(string message, octet *privateKey, csprng *RNG)
     hash_val.val = new char[HASH_TYPE_SECP256K1];
 
     Hash_Function(hash_val.len, &this->message, &hash_val);
-    setHashvalue(hash_val);
+    this->setHashvalue(hash_val);
 
     // Initialize Signature
     if (!generateSignature(RNG, privateKey, this))
@@ -195,199 +195,136 @@ bool Message::generateSignature(csprng *RNG, octet *privateKey, Message *msg)
 {
     using namespace B256_56;
 
-    pair<octet, octet> signature_temp;
+    pair<octet, octet> sign;
 
     octet hashval = msg->getHashvalue();
 
-    ECP G;
-    ECP_generator(&G);
-
-    // Output hash value
-    cout << "Hash value: ";
-    OCT_output(&hashval);
-    cout << endl;
-
     // All declarations
-    BIG kval, hval, x, mod, w, rval, maskedPrivKey, invk, temp, privval;
-    ECP R;
+    BIG k, x, w, r, s, mod, invk, hval, masked_k, privval;
+    ECP R, G;
 
-    BIG_rcopy(mod,CURVE_Order);
+    ECP_generator(&G);           // set Generator Point
+    BIG_rcopy(mod, CURVE_Order); // copy curve order to mod
 
+    BIG_fromBytes(privval, privateKey->val); // copy private key to privval
+
+    // hash length check and copy hashval to hval
     int blen = hashval.len;
     if (hashval.len > EGS_SECP256K1)
     {
         blen = EGS_SECP256K1;
     }
 
-    // Convert hashval to BIG
-    BIG_fromBytesLen(hval, hashval.val, blen);
+    BIG_fromBytesLen(hval, hashval.val, blen); // copy hashval to hval
 
+    // Actual Signature Generation Process loop
     do
     {
-        // Key random(RNG);
-        // k = random.getPrivateKey();
-        // R_oct = random.getPublicKey();
-
-        BIG_randomnum(kval, mod, RNG);
-        ECP_copy(&R, &G);
-
-        ECP_clmul(&R, kval, mod);
-
-        // // validate R_oct
-        // if (ECP_PUBLIC_KEY_VALIDATE(&R_oct) != 0)
-        // {
-        //     cerr << "Error: Invalid public key during signature generation." << endl;
-        //     return false;
-        // }
-
-        // // Convert k( random private key) to BIG
-        // BIG_fromBytes(kval, k.val);
-
-        // // R_oct to ECP
-        // ECP_fromOctet(&R, &R_oct);
-
-        cout << " Printing R point: " << endl;
-        ECP_output(&R);
-        cout << endl;
-
-        if(ECP_isinf(&R))
-        {
-            cerr << "Error: Invalid public key during signature generation." << endl;
-        }
-
-        // Extract r from R using ECP_get
-        ECP_get(x, x, &R);
-
-        // Side channel Masking
+        BIG_randomnum(k, mod, RNG); // k = random number from [1, n-1]
         BIG_randomnum(w, mod, RNG); /* IMPORTANT - side channel masking to protect invmodp() */
 
-        // convert r to BIG
-        BIG_copy(rval, x);
-        BIG_mod(rval, mod);
-        if (BIG_iszilch(rval))
+        ECP_copy(&R, &G);      // set R = G
+        ECP_clmul(&R, k, mod); // R = k * G
+
+        ECP_get(x, x, &R); // x = R.x
+
+        BIG_copy(r, x);  // r = x
+        BIG_mod(r, mod); // r = x mod n
+
+        if (BIG_iszilch(r))
             continue;
 
         // Now getting into equation s = k^-1 * (h + r* privKey)(mod n)
 
-        // Multiply privKey by w for side-channel masking
-        BIG_modmul(maskedPrivKey, kval, w, mod);
+        BIG_modmul(masked_k, k, w, mod);  // masked_k = k * w
+        BIG_invmodp(invk, masked_k, mod); // invk = k^-1 * w^-1
 
-        // Convert k to k^-1 (inverse modulo)
-        BIG_invmodp(invk, maskedPrivKey, mod);
-        if (BIG_iszilch(invk))
-        {
-            cerr << "Error: k^-1 = 0" << endl;
-            continue;
-        }
+        BIG_modmul(s, r, privval, mod); // s = r * privKey
+        BIG_modadd(s, hval, s, mod);    // s = h + r * privKey
+        BIG_modmul(s, s, w, mod);       // s = h + r * privKey * w --> side channel masking
 
-        // r * privKey
-        BIG_modmul(temp, rval, privval, mod); // temp = r * privKey
-
-        // h + r * privKey
-        BIG_modadd(temp, hval, temp, mod); // temp = h + r * privKey
-
-        BIG_modmul(temp, temp, w, mod); // temp = h + r * privKey * w --> side channel masking
-
-        // k^-1 * (h + r * privKey)
-        BIG_modmul(temp, invk, temp, mod); // temp3 = k^-1 * (h + r * privKey)
-
-    } while (BIG_iszilch(temp));
-
-    // if (BIG_iszilch(temp))
-    // {
-    //     cerr << "Error: k^-1 * (h + r * privKey) = 0" << endl;
-    //     return false;
-    // }
+        BIG_modmul(s, invk, s, mod); // temp = k^-1 * (h + r * privKey)
+    } while (BIG_iszilch(s));
 
     // Convert BIG to FP
-    signature_temp.first.len = EGS_SECP256K1;
-    signature_temp.first.max = EGS_SECP256K1;
-    signature_temp.first.val = new char[EGS_SECP256K1];
+    sign.first.len = EGS_SECP256K1;
+    sign.first.max = EGS_SECP256K1;
+    sign.first.val = new char[EGS_SECP256K1];
 
-    signature_temp.second.len = EGS_SECP256K1;
-    signature_temp.second.max = EGS_SECP256K1;
-    signature_temp.second.val = new char[EGS_SECP256K1];
+    sign.second.len = EGS_SECP256K1;
+    sign.second.max = EGS_SECP256K1;
+    sign.second.val = new char[EGS_SECP256K1];
 
-    BIG_toBytes(signature_temp.first.val, rval);
-    BIG_toBytes(signature_temp.second.val, temp);
+    BIG_toBytes(sign.first.val, r);
+    BIG_toBytes(sign.second.val, s);
 
-    this->setSignature(signature_temp);
+    this->setSignature(sign);
     return true;
 }
 
 bool Message::verifySignature(Message *msg, octet *publicKey)
 {
-    cout << "Verifying signature..." << endl;
+    using namespace B256_56;
+    using namespace SECP256K1;
 
-    pair<octet, octet> signature = msg->getSignature();
-
-    SECP256K1::ECP G;
-    Key::setGeneratorPoint(&G);
+    pair<octet, octet> signature = msg->getSignature(); // get signature
+    octet hashval = msg->getHashvalue();                // get hash value of message
 
     // All declarations
     BIG hashval_big, mod, r, r1, s, temp1, temp2;
+    ECP G, pubKey;
+
+    ECP_generator(&G);           // set Generator Point
+    BIG_rcopy(mod, CURVE_Order); // copy curve order to mod
+
     int res = 0;
-    ECP pubKey;
-    int valid = ECP_fromOctet(&pubKey, publicKey);
+    int valid = ECP_fromOctet(&pubKey, publicKey); // set public key to pubKey
 
-    if (valid != 0)
-    {
-        cerr << "Error: Invalid public key during signature verification." << endl;
-        return false;
-    }
-
-    octet hashval = msg->getHashvalue(); // hash value of message
-
+    // hash length check and copy hashval to hval
     int blen = hashval.len;
     if (hashval.len > EGS_SECP256K1)
     {
         blen = EGS_SECP256K1;
     }
 
-    // Convert hashval to BIG
-    BIG_fromBytesLen(hashval_big, hashval.val, blen);
+    BIG_fromBytesLen(hashval_big, hashval.val, blen); // copy hashval to hval
 
-    // COnvert CURVE_Order to non const BIG
-    BIG_rcopy(mod, CURVE_Order);
-
-    // convert r to BIG
+    // Extract (r,s) from signature
     BIG_fromBytes(r, signature.first.val);
-
-    // convert s to BIG
     BIG_fromBytes(s, signature.second.val);
 
+    // Check if signature is valid
     if (BIG_iszilch(r) || BIG_comp(r, mod) >= 0 || BIG_iszilch(s) || BIG_comp(s, mod) >= 0)
     {
         cerr << "Error: Invalid signature" << endl;
         return false;
     }
 
+    // Actual Signature Verification process loop
     if (res == 0)
     {
-        BIG_invmodp(s, s, mod);
-        BIG_modmul(temp1, hashval_big, s, mod);
-        BIG_modmul(temp2, r, s, mod);
+        BIG_invmodp(s, s, mod);                 // s = s^-1
+        BIG_modmul(temp1, hashval_big, s, mod); // temp1 = h * s^-1
+        BIG_modmul(temp2, r, s, mod);           // temp2 = r * s^-1
 
-        valid = ECP_fromOctet(&pubKey, publicKey);
+        valid = ECP_fromOctet(&pubKey, publicKey); // set public key to pubKey
+
         if (valid != 0)
         {
             res = ECDH_ERROR;
         }
         else
         {
-            ECP_mul2(&pubKey, &G, temp2, temp1);
+            ECP_mul2(&pubKey, &G, temp2, temp1); // pubKey = G * temp1 + temp2 * pubKey
+
             if (ECP_isinf(&pubKey))
             {
                 res = ECDH_ERROR;
             }
             else
             {
-                ECP_get(r1, r1, &pubKey);
-                BIG_mod(r1, mod);
-
-                cout << "r1: ";
-                BIG_output(r1);
-                cout << endl;
+                ECP_get(r1, r1, &pubKey); // r1 = pubKey.x
+                BIG_mod(r1, mod);         // r1 = r1 mod
 
                 if (BIG_comp(r1, r) != 0)
                 {
