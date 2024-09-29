@@ -30,7 +30,7 @@ Message::~Message()
 }
 
 // Constructor which takes string as input
-Message::Message(string message, octet *privateKey, csprng *RNG)
+Message::Message(string message, Key *Keypair, csprng *RNG)
 {
     // Initialize message
     this->message.len = message.size();
@@ -56,13 +56,26 @@ Message::Message(string message, octet *privateKey, csprng *RNG)
     this->setHashvalue(hash_val);
 
     // Initialize Signature
-    if (!generateSignature(RNG, privateKey, this))
+    if (!generateSignature(RNG, Keypair, this))
     {
         cout << "Signature generation failed" << endl;
         exit(1);
     }
+    else
+    {
+        cout << " Signature Generation Successful" << endl;
+    }
 
-    cout << "Signature generated" << endl;
+    // Validating Signature
+    if (!verifySignature(this, Keypair))
+    {
+        cout << "Signature verification failed" << endl;
+        exit(1);
+    }
+    else
+    {
+        cout << "Signature verification successful" << endl;
+    }
 }
 
 /*
@@ -191,22 +204,34 @@ void Message::multiply_octet(octet *data1, octet *data2, octet *result)
     BIG_toBytes(result->val, product);
 }
 
-bool Message::generateSignature(csprng *RNG, octet *privateKey, Message *msg)
+bool Message::generateSignature(csprng *RNG, Key* Keypair, Message *msg)
 {
+    cout << "Generating Signature" << endl;
+
     using namespace B256_56;
 
     pair<octet, octet> sign;
 
     octet hashval = msg->getHashvalue();
 
+    // Printing Hashvalue of Message --> DEBUG INFO
+    cout << "Hashvalue of message as in generateSignature function: ";
+    OCT_output(&hashval);
+    cout << endl;
+
     // All declarations
     BIG k, x, w, r, s, mod, invk, hval, masked_k, privval;
     ECP R, G;
 
-    ECP_generator(&G);           // set Generator Point
+    Key::setGeneratorPoint(&G);  // set Generator Point
     BIG_rcopy(mod, CURVE_Order); // copy curve order to mod
 
-    BIG_fromBytes(privval, privateKey->val); // copy private key to privval
+    // Printing Generator Point --> DEBUG INFO
+    cout << "Generator Point as in generateSignature function: ";
+    ECP_output(&G);
+    cout << endl;
+
+    BIG_fromBytes(privval, Keypair->getPrivateKey().val); // copy private key to privval
 
     // hash length check and copy hashval to hval
     int blen = hashval.len;
@@ -225,6 +250,11 @@ bool Message::generateSignature(csprng *RNG, octet *privateKey, Message *msg)
 
         ECP_copy(&R, &G);      // set R = G
         ECP_clmul(&R, k, mod); // R = k * G
+
+        // Printing R --> DEBUG INFO
+        cout << "R as in generateSignature function: ";
+        ECP_output(&R);
+        cout << endl;
 
         ECP_get(x, x, &R); // x = R.x
 
@@ -255,14 +285,27 @@ bool Message::generateSignature(csprng *RNG, octet *privateKey, Message *msg)
     sign.second.max = EGS_SECP256K1;
     sign.second.val = new char[EGS_SECP256K1];
 
+    // Printing r value --> DEBUG INFO
+    cout << "r value : ";
+    BIG_rawoutput(r);
+    cout << endl;
+
     BIG_toBytes(sign.first.val, r);
     BIG_toBytes(sign.second.val, s);
+
+    // Printing Signature --> DEBUG INFO
+    cout << "Signature r : ";
+    OCT_output(&sign.first);
+    cout << endl;
+    cout << "Signature s :";
+    OCT_output(&sign.second);
+    cout << endl;
 
     this->setSignature(sign);
     return true;
 }
 
-bool Message::verifySignature(Message *msg, octet *publicKey)
+bool Message::verifySignature(Message *msg, Key* Keypair)
 {
     using namespace B256_56;
     using namespace SECP256K1;
@@ -273,12 +316,17 @@ bool Message::verifySignature(Message *msg, octet *publicKey)
     // All declarations
     BIG hashval_big, mod, r, r1, s, temp1, temp2;
     ECP G, pubKey;
+    int valid;
 
     ECP_generator(&G);           // set Generator Point
     BIG_rcopy(mod, CURVE_Order); // copy curve order to mod
 
     int res = 0;
-    int valid = ECP_fromOctet(&pubKey, publicKey); // set public key to pubKey
+
+    char pub[2 * EFS_SECP256K1 + 1];
+    octet publicKey ={0, 2 * EFS_SECP256K1, pub};
+
+    publicKey = Keypair->getPublicKey();
 
     // hash length check and copy hashval to hval
     int blen = hashval.len;
@@ -296,6 +344,7 @@ bool Message::verifySignature(Message *msg, octet *publicKey)
     // Check if signature is valid
     if (BIG_iszilch(r) || BIG_comp(r, mod) >= 0 || BIG_iszilch(s) || BIG_comp(s, mod) >= 0)
     {
+        res = ECDH_ERROR;
         cerr << "Error: Invalid signature" << endl;
         return false;
     }
@@ -307,7 +356,12 @@ bool Message::verifySignature(Message *msg, octet *publicKey)
         BIG_modmul(temp1, hashval_big, s, mod); // temp1 = h * s^-1
         BIG_modmul(temp2, r, s, mod);           // temp2 = r * s^-1
 
-        valid = ECP_fromOctet(&pubKey, publicKey); // set public key to pubKey
+        // Printing pubKey --> DEBUG INFO
+        cout << "Public Key as in verifySignature function: ";
+        OCT_output(&publicKey);
+        cout << endl;
+
+        valid = ECP_fromOctet(&pubKey, &publicKey); // set public key to pubKey
 
         if (valid != 0)
         {
@@ -326,22 +380,26 @@ bool Message::verifySignature(Message *msg, octet *publicKey)
                 ECP_get(r1, r1, &pubKey); // r1 = pubKey.x
                 BIG_mod(r1, mod);         // r1 = r1 mod
 
+                // Printing r1 --> DEBUG INFO
+                cout << " r1 as in verifySignature function: ";
+                BIG_output(r1);
+                cout<<endl;
+                BIG_rawoutput(r1);
+                cout << endl;
+
                 if (BIG_comp(r1, r) != 0)
                 {
                     res = ECDH_ERROR;
                 }
+                // Printing r1 and r--> DEBUG INFO
+                cout << " r1 and r as in verifySignature function: ";
+                BIG_output(r1);
+                cout << " ";
+                BIG_output(r);
+                cout << endl;
             }
         }
     }
 
-    if (res == 0)
-    {
-        cout << "Signature verified successfully" << endl;
-        return true;
-    }
-    else
-    {
-        cout << "Signature verification failed" << endl;
-        return false;
-    }
+    return res;
 }

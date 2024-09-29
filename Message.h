@@ -22,7 +22,7 @@ private:
 public:
     Message();
     ~Message();
-    Message(string message, octet* privateKey, csprng *RNG);
+    Message(string message, Key* Keypair, csprng *RNG);
     core::octet getMessage();
     core::octet getHashvalue();
     pair<core::octet, core::octet> getSignature();
@@ -35,8 +35,8 @@ public:
     static void Hash_Function(int hlen,octet *input, octet *output);
     static void add_octets(octet *data1, octet *data2, octet *result);
     static void multiply_octet(octet *data1, octet *data2, octet *result);
-    bool generateSignature(csprng *RNG, octet *privateKey, Message *msg);
-    static bool verifySignature(Message *msg,octet *publicKey);
+    bool generateSignature(csprng *RNG, Key* Keypair, Message *msg);
+    static bool verifySignature(Message *msg,Key* Keypair);
 };
 
 #endif // MESSAGE_H

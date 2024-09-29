@@ -82,9 +82,6 @@ int main()
 
     ECP G;
     Key::setGeneratorPoint(&G);
-    cout << "Generator Point :";
-    ECP_output(&G);
-    cout << endl;
 
     // Store private key in a variable
     octet privateKey = key.getPrivateKey();
@@ -110,23 +107,7 @@ int main()
     // Initialize Message
     string message = "Hello World!";
     cout << "Message: " << message << endl;
-    Message msg(message, &privateKey, &RNG);
-
-    // get Hashvalue and Message
-    octet Hashvalue = msg.getHashvalue();
-    octet Messageval = msg.getMessage();
-
-    // print Signature
-    pair<octet, octet> signature = msg.getSignature();
-    cout << "Signature: (";
-    OCT_output(&signature.first);
-    cout << " , ";
-    OCT_output(&signature.second);
-    cout << " )";
-    cout << endl;
-
-    bool verified = Message::verifySignature(&msg, &publicKey);
-    cout << "Verification: " << bool(verified) << endl;
+    Message msg(message, &key, &RNG);
 
     ECP gnpnt;
     Key::setGeneratorPoint(&gnpnt);
