@@ -211,6 +211,8 @@ bool Message::generateSignature(csprng *RNG, octet *privateKey, Message *msg)
     BIG kval, hval, x, mod, w, rval, maskedPrivKey, invk, temp, privval;
     ECP R;
 
+    BIG_rcopy(mod,CURVE_Order);
+
     int blen = hashval.len;
     if (hashval.len > EGS_SECP256K1)
     {
