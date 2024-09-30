@@ -78,18 +78,24 @@ int main()
     // Initialize CSPRNG
     core::CREATE_CSPRNG(&RNG, &RAW);
 
-    Key key(&RNG);
+    cout<<endl;
+    cout<<"###############################################################################################################################################"<<endl;
+    cout<<" "<<endl;
+
+    char priv [EGS_SECP256K1];
+    octet privateKey = {0, sizeof(priv), priv};
+
+    Key key(&RNG, &privateKey);
 
     ECP G;
     Key::setGeneratorPoint(&G);
+
+    cout<<"###############################################################################################################################################"<<endl;
 
     cout << "!!!   Generator Point: " << endl;
     cout << "       ";
     ECP_output(&G);
     cout << endl;
-
-    // Store private key in a variable
-    octet privateKey = key.getPrivateKey();
 
     // print private key
     cout << "!!!   Private Key: ";

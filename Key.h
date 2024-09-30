@@ -17,7 +17,7 @@ private:
     SECP256K1::ECP publicKey;
 
 public:
-    Key(csprng *RNG);
+    Key(csprng *RNG, octet *PrivateKey);
     ~Key();
     octet getPrivateKey();
     SECP256K1::ECP getPublicKey();

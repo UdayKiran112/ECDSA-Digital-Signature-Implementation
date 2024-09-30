@@ -6,8 +6,13 @@ Key::~Key()
 {
 }
 
-Key::Key(csprng *RNG)
+Key::Key(csprng *RNG, octet *privateKey)
 {
+    // Memory Allocation
+    this->privateKey.val = new char[EGS_SECP256K1];
+    this->privateKey.len = EGS_SECP256K1;
+
+
     if (RNG == NULL)
     {
         throw invalid_argument("Random Number Generator is null");
@@ -16,7 +21,7 @@ Key::Key(csprng *RNG)
     SECP256K1::ECP G;
     setGeneratorPoint(&G);
 
-    char priv[2 * EGS_SECP256K1];
+    char priv[EGS_SECP256K1];
     octet privval = {0, sizeof(priv), priv};
 
     // Generate private key
@@ -26,6 +31,7 @@ Key::Key(csprng *RNG)
     }
     this->setPrivateKey(privval);
 
+    OCT_copy(privateKey, &privval);
     // Print private key--> DEBUG INFO
     cout << "!!!   Private Key in constructor: " << endl;
     OCT_output(&privval);
@@ -100,7 +106,7 @@ int Key::generatePrivateKey(csprng *randomNumberGenerator, octet *PrivateKey)
     {
         throw runtime_error("Random Number Generator is null");
     }
-    PrivateKey->len = 2 * EGS_SECP256K1;
+    PrivateKey->len = EGS_SECP256K1;
     BIG_toBytes(PrivateKey->val, secret);
 
     return 0;
