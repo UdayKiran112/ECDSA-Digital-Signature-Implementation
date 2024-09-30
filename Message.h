@@ -17,26 +17,26 @@ class Message
 private:
     core::octet message;
     core::octet Hashvalue;
-    pair<octet,octet> Signature;
+    pair<octet, octet> Signature;
 
 public:
     Message();
     ~Message();
-    Message(string message, Key* Keypair, csprng *RNG);
+    Message(string message, SECP256K1::ECP* public_key,octet* private_key, csprng *RNG);
     core::octet getMessage();
     core::octet getHashvalue();
     pair<core::octet, core::octet> getSignature();
 
     void setMessage(core::octet message);
     void setHashvalue(core::octet Hashvalue);
-    void setSignature(pair<octet,octet> Signature);
+    void setSignature(pair<octet, octet> Signature);
 
     static void Concatenate_octet(octet *data1, octet *data2, octet *result);
-    static void Hash_Function(int hlen,octet *input, octet *output);
+    static void Hash_Function(int hlen, octet *input, octet *output);
     static void add_octets(octet *data1, octet *data2, octet *result);
     static void multiply_octet(octet *data1, octet *data2, octet *result);
-    bool generateSignature(csprng *RNG, Key* Keypair, Message *msg);
-    static bool verifySignature(Message *msg,Key* Keypair);
+    bool generateSignature(csprng *RNG, octet* private_key, Message *msg);
+    static bool verifySignature(Message *msg, SECP256K1::ECP* public_key);
 };
 
 #endif // MESSAGE_H

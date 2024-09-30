@@ -30,7 +30,7 @@ Message::~Message()
 }
 
 // Constructor which takes string as input
-Message::Message(string message, Key *Keypair, csprng *RNG)
+Message::Message(string message, SECP256K1::ECP* public_key, octet* private_key, csprng *RNG)
 {
     // Initialize message
     this->message.len = message.size();
@@ -55,8 +55,11 @@ Message::Message(string message, Key *Keypair, csprng *RNG)
     Hash_Function(hash_val.len, &this->message, &hash_val);
     this->setHashvalue(hash_val);
 
+    cout << "\n###############################################################################################################################################\n"
+         << endl;
+
     // Initialize Signature
-    if (!generateSignature(RNG, Keypair, this))
+    if (!generateSignature(RNG, private_key, this))
     {
         cout << "Signature generation failed" << endl;
         exit(1);
@@ -66,8 +69,11 @@ Message::Message(string message, Key *Keypair, csprng *RNG)
         cout << " Signature Generation Successful" << endl;
     }
 
+    cout << "\n###############################################################################################################################################\n"
+         << endl;
+
     // Validating Signature
-    if (!verifySignature(this, Keypair))
+    if (!verifySignature(this, public_key))
     {
         cout << "Signature verification failed" << endl;
         exit(1);
@@ -76,6 +82,9 @@ Message::Message(string message, Key *Keypair, csprng *RNG)
     {
         cout << "Signature verification successful" << endl;
     }
+
+    cout << "\n###############################################################################################################################################\n"
+         << endl;
 }
 
 /*
@@ -204,9 +213,9 @@ void Message::multiply_octet(octet *data1, octet *data2, octet *result)
     BIG_toBytes(result->val, product);
 }
 
-bool Message::generateSignature(csprng *RNG, Key* Keypair, Message *msg)
+bool Message::generateSignature(csprng *RNG, octet* private_key, Message *msg)
 {
-    cout << "Generating Signature" << endl;
+    cout << "----------Generating Signature---------" << endl;
 
     using namespace B256_56;
 
@@ -215,23 +224,32 @@ bool Message::generateSignature(csprng *RNG, Key* Keypair, Message *msg)
     octet hashval = msg->getHashvalue();
 
     // Printing Hashvalue of Message --> DEBUG INFO
-    cout << "Hashvalue of message as in generateSignature function: ";
+    cout << "!!!   Hashvalue of message as in generateSignature function: ";
+    cout << "       ";
     OCT_output(&hashval);
     cout << endl;
 
     // All declarations
-    BIG k, x, w, r, s, mod, invk, hval, masked_k, privval;
+    BIG k, x, w, r, s, mod, invk, hval, masked_k, privval,q;
     ECP R, G;
 
     Key::setGeneratorPoint(&G);  // set Generator Point
     BIG_rcopy(mod, CURVE_Order); // copy curve order to mod
+    BIG_rcopy(q,Modulus);
 
     // Printing Generator Point --> DEBUG INFO
-    cout << "Generator Point as in generateSignature function: ";
+    cout << "!!!   Generator Point as in generateSignature function: ";
+    cout << "       ";
     ECP_output(&G);
     cout << endl;
 
-    BIG_fromBytes(privval, Keypair->getPrivateKey().val); // copy private key to privval
+    BIG_fromBytes(privval, private_key->val);
+
+    // Printing Private Key --> DEBUG INFO
+    cout << "!!!   Private Key as in generateSignature function: ";
+    cout << "       ";
+    BIG_output(privval);
+    cout << endl;
 
     // hash length check and copy hashval to hval
     int blen = hashval.len;
@@ -252,14 +270,15 @@ bool Message::generateSignature(csprng *RNG, Key* Keypair, Message *msg)
         ECP_clmul(&R, k, mod); // R = k * G
 
         // Printing R --> DEBUG INFO
-        cout << "R as in generateSignature function: ";
+        cout << "!!!   R as in generateSignature function: ";
+        cout << "       ";
         ECP_output(&R);
         cout << endl;
 
         ECP_get(x, x, &R); // x = R.x
 
         BIG_copy(r, x);  // r = x
-        BIG_mod(r, mod); // r = x mod n
+        BIG_mod(r, q); // r = x mod q
 
         if (BIG_iszilch(r))
             continue;
@@ -286,18 +305,22 @@ bool Message::generateSignature(csprng *RNG, Key* Keypair, Message *msg)
     sign.second.val = new char[EGS_SECP256K1];
 
     // Printing r value --> DEBUG INFO
-    cout << "r value : ";
+    cout << "!!!   r value in raw output: ";
+    cout << "       ";
     BIG_rawoutput(r);
-    cout << endl;
+    cout << endl
+         << endl;
 
     BIG_toBytes(sign.first.val, r);
     BIG_toBytes(sign.second.val, s);
 
     // Printing Signature --> DEBUG INFO
-    cout << "Signature r : ";
+    cout << "!!!   Signature r : ";
+    cout << "       ";
     OCT_output(&sign.first);
     cout << endl;
-    cout << "Signature s :";
+    cout << "!!!   Signature s :";
+    cout << "       ";
     OCT_output(&sign.second);
     cout << endl;
 
@@ -305,8 +328,9 @@ bool Message::generateSignature(csprng *RNG, Key* Keypair, Message *msg)
     return true;
 }
 
-bool Message::verifySignature(Message *msg, Key* Keypair)
+bool Message::verifySignature(Message *msg, SECP256K1::ECP* public_key)
 {
+    cout << "----------Verifying Signature----------" << endl;
     using namespace B256_56;
     using namespace SECP256K1;
 
@@ -314,19 +338,16 @@ bool Message::verifySignature(Message *msg, Key* Keypair)
     octet hashval = msg->getHashvalue();                // get hash value of message
 
     // All declarations
-    BIG hashval_big, mod, r, r1, s, temp1, temp2;
+    BIG hashval_big, mod, r, r1, s, temp1, temp2,q;
     ECP G, pubKey;
-    int valid;
 
     ECP_generator(&G);           // set Generator Point
     BIG_rcopy(mod, CURVE_Order); // copy curve order to mod
+    BIG_rcopy(q,Modulus);
 
     int res = 0;
 
-    char pub[2 * EFS_SECP256K1 + 1];
-    octet publicKey ={0, 2 * EFS_SECP256K1, pub};
-
-    publicKey = Keypair->getPublicKey();
+    ECP_copy(&pubKey, public_key); // copy public key to pubKey
 
     // hash length check and copy hashval to hval
     int blen = hashval.len;
@@ -342,10 +363,11 @@ bool Message::verifySignature(Message *msg, Key* Keypair)
     BIG_fromBytes(s, signature.second.val);
 
     // Check if signature is valid
-    if (BIG_iszilch(r) || BIG_comp(r, mod) >= 0 || BIG_iszilch(s) || BIG_comp(s, mod) >= 0)
+    if (BIG_iszilch(r) || BIG_comp(r, q) >= 0 || BIG_iszilch(s) || BIG_comp(s, mod) >= 0)
     {
         res = ECDH_ERROR;
-        cerr << "Error: Invalid signature" << endl;
+        cerr << "!!!   Error: Invalid signature   !!!" << endl;
+        cout << "       ";
         return false;
     }
 
@@ -356,50 +378,59 @@ bool Message::verifySignature(Message *msg, Key* Keypair)
         BIG_modmul(temp1, hashval_big, s, mod); // temp1 = h * s^-1
         BIG_modmul(temp2, r, s, mod);           // temp2 = r * s^-1
 
-        // Printing pubKey --> DEBUG INFO
-        cout << "Public Key as in verifySignature function: ";
-        OCT_output(&publicKey);
+        // print pubKey --> DEBUG INFO
+        cout << "!!!   Public Key as in verifySignature function: ";
+        cout << "       ";
+        ECP_output(&pubKey);
         cout << endl;
+        ECP_mul2(&pubKey, &G, temp2, temp1); // pubKey = G * temp1 + temp2 * pubKey
 
-        valid = ECP_fromOctet(&pubKey, &publicKey); // set public key to pubKey
-
-        if (valid != 0)
+        if (ECP_isinf(&pubKey))
         {
             res = ECDH_ERROR;
         }
         else
         {
-            ECP_mul2(&pubKey, &G, temp2, temp1); // pubKey = G * temp1 + temp2 * pubKey
+            ECP_get(r1, r1, &pubKey); // r1 = pubKey.x
+            BIG_mod(r1, q);         // r1 = r1 mod Modulus
 
-            if (ECP_isinf(&pubKey))
+            // Printing r1 --> DEBUG INFO
+            cout << "!!!   r1 as in verifySignature function: ";
+            cout << "       ";
+            BIG_rawoutput(r1);
+            cout << endl
+                 << endl;
+            cout << "!!!   r as in verifySignature function: ";
+            cout << "       ";
+            BIG_rawoutput(r);
+            cout << endl
+                 << endl;
+
+            if (BIG_comp(r1, r) != 0)
             {
                 res = ECDH_ERROR;
             }
-            else
-            {
-                ECP_get(r1, r1, &pubKey); // r1 = pubKey.x
-                BIG_mod(r1, mod);         // r1 = r1 mod
+            // Printing r1 and r--> DEBUG INFO
+            cout << "!!!   r1 in verifySignature function: ";
+            cout << "       ";
+            BIG_output(r1);
+            cout << endl
+                 << endl;
 
-                // Printing r1 --> DEBUG INFO
-                cout << " r1 as in verifySignature function: ";
-                BIG_output(r1);
-                cout<<endl;
-                BIG_rawoutput(r1);
-                cout << endl;
-
-                if (BIG_comp(r1, r) != 0)
-                {
-                    res = ECDH_ERROR;
-                }
-                // Printing r1 and r--> DEBUG INFO
-                cout << " r1 and r as in verifySignature function: ";
-                BIG_output(r1);
-                cout << " ";
-                BIG_output(r);
-                cout << endl;
-            }
+            cout << "!!!   r in verifySignature function: ";
+            cout << "       ";
+            BIG_output(r);
+            cout << endl
+                 << endl;
         }
     }
 
-    return res;
+    if (res == 0)
+    {
+        return true;
+    }
+    else
+    {
+        return false;
+    }
 }

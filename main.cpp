@@ -6,49 +6,49 @@ using namespace std;
 using namespace B256_56;
 using namespace SECP256K1;
 
-bool checkFunction(csprng *RNG, ECP *generatorPoint)
-{
-    Key pair1 = Key(RNG);
-    Key pair2 = Key(RNG);
+// bool checkFunction(csprng *RNG, ECP *generatorPoint)
+// {
+//     Key pair1 = Key(RNG);
+//     Key pair2 = Key(RNG);
 
-    octet alpha = pair1.getPrivateKey();
-    octet beta = pair2.getPrivateKey();
+//     octet alpha = pair1.getPrivateKey();
+//     octet beta = pair2.getPrivateKey();
 
-    Key::setGeneratorPoint(generatorPoint);
+//     Key::setGeneratorPoint(generatorPoint);
 
-    ECP A, B;
-    BIG curve_order;
+//     ECP A, B;
+//     BIG curve_order;
 
-    BIG alpha_new, beta_new;
-    BIG_fromBytes(alpha_new, alpha.val);
-    BIG_fromBytes(beta_new, beta.val);
+//     BIG alpha_new, beta_new;
+//     BIG_fromBytes(alpha_new, alpha.val);
+//     BIG_fromBytes(beta_new, beta.val);
 
-    BIG_rcopy(curve_order, CURVE_Order);
-    ECP_copy(&A, generatorPoint);
-    ECP_clmul(&A, alpha_new, curve_order);
+//     BIG_rcopy(curve_order, CURVE_Order);
+//     ECP_copy(&A, generatorPoint);
+//     ECP_clmul(&A, alpha_new, curve_order);
 
-    ECP_copy(&B, generatorPoint);
-    ECP_clmul(&B, beta_new, curve_order);
+//     ECP_copy(&B, generatorPoint);
+//     ECP_clmul(&B, beta_new, curve_order);
 
-    BIG combined;
-    BIG_add(combined, alpha_new, beta_new);
-    ECP lhs;
-    ECP_copy(&lhs, generatorPoint);
-    ECP_clmul(&lhs, combined, curve_order);
+//     BIG combined;
+//     BIG_add(combined, alpha_new, beta_new);
+//     ECP lhs;
+//     ECP_copy(&lhs, generatorPoint);
+//     ECP_clmul(&lhs, combined, curve_order);
 
-    ECP_add(&A, &B);
-    ECP rhs;
-    ECP_copy(&rhs, &A);
+//     ECP_add(&A, &B);
+//     ECP rhs;
+//     ECP_copy(&rhs, &A);
 
-    if (ECP_equals(&lhs, &rhs))
-    {
-        return true;
-    }
-    else
-    {
-        return false;
-    }
-}
+//     if (ECP_equals(&lhs, &rhs))
+//     {
+//         return true;
+//     }
+//     else
+//     {
+//         return false;
+//     }
+// }
 
 int main()
 {
@@ -83,37 +83,38 @@ int main()
     ECP G;
     Key::setGeneratorPoint(&G);
 
+    cout << "!!!   Generator Point: " << endl;
+    cout << "       ";
+    ECP_output(&G);
+    cout << endl;
+
     // Store private key in a variable
     octet privateKey = key.getPrivateKey();
 
     // print private key
-    cout << "Private Key: ";
+    cout << "!!!   Private Key: ";
+    cout << "       ";
     OCT_output(&privateKey);
     cout << endl;
 
     // Store public key in a variable
-    octet publicKey = key.getPublicKey();
+    ECP publicKey = key.getPublicKey();
 
-    if (ECP_PUBLIC_KEY_VALIDATE(&publicKey) == 0)
-    {
-        return 0;
-    }
-
-    // print public key
-    cout << "Public Key: ";
-    OCT_output(&publicKey);
+    cout << "!!!   Public Key Point: " << endl;
+    cout << "       ";
+    ECP_output(&publicKey);
     cout << endl;
 
     // Initialize Message
     string message = "Hello World!";
-    cout << "Message: " << message << endl;
-    Message msg(message, &key, &RNG);
+    cout << "!!!   Message: " << message << endl;
+    Message msg(message, &publicKey, &privateKey, &RNG);
 
     ECP gnpnt;
     Key::setGeneratorPoint(&gnpnt);
 
-    bool check = checkFunction(&RNG, &gnpnt);
-    cout << "Check: " << check << endl;
+    // bool check = checkFunction(&RNG, &gnpnt);
+    // cout << "!!!   Check: " << check << endl;
 
     // Clean up the CSPRNG
     core::KILL_CSPRNG(&RNG);
